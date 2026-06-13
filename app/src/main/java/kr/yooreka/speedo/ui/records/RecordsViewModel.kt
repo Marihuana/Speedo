@@ -33,19 +33,19 @@ class RecordsViewModel @Inject constructor(
     val uiState: StateFlow<RecordsState> = combine(
         getRideHistoryUseCase(),
         billingRepository.isAdRemoved
-    ) { rideEntities, isAdRemoved ->
-        val records = rideEntities.map { entity ->
+    ) { rides, isAdRemoved ->
+        val records = rides.map { ride ->
             RideRecord(
-                id = entity.id,
-                title = entity.title,
-                date = dateFormatter.format(Date(entity.startTime)),
-                duration = formatDuration(entity.duration),
-                distance = String.format("%.1f km", entity.totalDistance),
-                maxLean = String.format("%.0f°", entity.maxLean),
-                topSpeed = String.format("%.0f", entity.maxSpeed)
+                id = ride.id,
+                title = ride.title,
+                date = dateFormatter.format(Date(ride.startTime)),
+                duration = formatDuration(ride.duration),
+                distance = String.format("%.1f km", ride.totalDistance),
+                maxLean = String.format("%.0f°", ride.maxLean),
+                topSpeed = String.format("%.0f", ride.maxSpeed)
             )
         }
-        val totalDistance = rideEntities.sumOf { it.totalDistance.toDouble() }
+        val totalDistance = rides.sumOf { it.totalDistance.toDouble() }
         RecordsState(
             records = records,
             totalDistance = String.format("%.1f", totalDistance),

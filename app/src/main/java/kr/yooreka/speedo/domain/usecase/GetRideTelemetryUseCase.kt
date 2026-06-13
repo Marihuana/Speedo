@@ -1,13 +1,12 @@
 package kr.yooreka.speedo.domain.usecase
 
-import kr.yooreka.speedo.data.local.dao.TelemetryDao
-import kr.yooreka.speedo.data.local.entity.TelemetryEntity
+import kr.yooreka.speedo.domain.model.RideTelemetry
+import kr.yooreka.speedo.domain.repository.RideRepository
 import javax.inject.Inject
 
 class GetRideTelemetryUseCase @Inject constructor(
-    private val telemetryDao: TelemetryDao
+    private val rideRepository: RideRepository
 ) {
-    suspend operator fun invoke(rideId: Long): List<TelemetryEntity> {
-        return telemetryDao.getTelemetryByRideId(rideId)
-    }
+    suspend operator fun invoke(rideId: Long): Result<List<RideTelemetry>> =
+        rideRepository.getRideTelemetry(rideId)
 }

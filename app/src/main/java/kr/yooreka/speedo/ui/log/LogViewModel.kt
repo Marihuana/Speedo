@@ -8,7 +8,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kr.yooreka.speedo.data.local.entity.TelemetryEntity
+import kr.yooreka.speedo.domain.model.RideTelemetry
 import kr.yooreka.speedo.domain.usecase.GetRideDetailUseCase
 import kr.yooreka.speedo.domain.usecase.GetRideTelemetryUseCase
 import java.text.SimpleDateFormat
@@ -23,8 +23,8 @@ data class LogState(
     val distance: String = "",
     val maxLean: String = "",
     val maxSpeed: String = "0",
-    val routePoints: List<TelemetryEntity> = emptyList(),
-    val selectedPoint: TelemetryEntity? = null
+    val routePoints: List<RideTelemetry> = emptyList(),
+    val selectedPoint: RideTelemetry? = null
 )
 
 @HiltViewModel
@@ -50,29 +50,31 @@ class LogViewModel @Inject constructor(
 
     private fun fetchRideDetails(rideId: Long) {
         viewModelScope.launch {
-            val ride = getRideDetailUseCase(rideId)
-            val telemetryData = getRideTelemetryUseCase(rideId)
-            
-            if (ride != null) {
-                val maxSpd = telemetryData.maxOfOrNull { it.speed } ?: 0f
-                _uiState.value = LogState(
-                    isLoading = false,
-                    title = ride.title,
-                    date = dateFormatter.format(Date(ride.startTime)),
-                    duration = formatDuration(ride.duration),
-                    distance = String.format("%.1f", ride.totalDistance),
-                    maxLean = String.format("%.0f", ride.maxLean),
-                    maxSpeed = String.format("%.0f", maxSpd),
-                    routePoints = telemetryData,
-                    selectedPoint = null
-                )
-            } else {
-                _uiState.value = LogState(isLoading = false, title = "Record not found")
-            }
+            val telemetryData = getRideTelemetryUseCase(rideId).getOrDefault(emptyList())
+
+            getRideDetailUseCase(rideId).fold(
+                onSuccess = { ride ->
+                    val maxSpd = telemetryData.maxOfOrNull { it.speed } ?: 0f
+                    _uiState.value = LogState(
+                        isLoading = false,
+                        title = ride.title,
+                        date = dateFormatter.format(Date(ride.startTime)),
+                        duration = formatDuration(ride.duration),
+                        distance = String.format("%.1f", ride.totalDistance),
+                        maxLean = String.format("%.0f", ride.maxLean),
+                        maxSpeed = String.format("%.0f", maxSpd),
+                        routePoints = telemetryData,
+                        selectedPoint = null
+                    )
+                },
+                onFailure = {
+                    _uiState.value = LogState(isLoading = false, title = "Record not found")
+                }
+            )
         }
     }
     
-    fun selectPoint(point: TelemetryEntity?) {
+    fun selectPoint(point: RideTelemetry?) {
         _uiState.value = _uiState.value.copy(selectedPoint = point)
     }
 
