@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">에브리바리</string>
+
+    <!-- Tabs -->
+    <string name="tab_monitor">모니터</string>
+    <string name="tab_records">기록</string>
+    <string name="tab_settings">설정</string>
+
+    <!-- Dashboard -->
+    <string name="dashboard_title">EVERY BARI</string>
+    <string name="dashboard_subtitle">라이브 텔레메트리</string>
+    <string name="lean_angle">기울기(뱅킹각)</string>
+    <string name="tpms_status">TPMS 상태</string>
+    <string name="rear">뒷바퀴</string>
+    <string name="front">앞바퀴</string>
+
+    <!-- Records -->
+    <string name="records_title">주행 기록</string>
+    <string name="records_subtitle">나의 라이딩 히스토리</string>
+    <string name="total_distance">총 누적 거리</string>
+    <string name="kilometers">킬로미터</string>
+    <string name="duration">주행 시간</string>
+    <string name="distance">거리</string>
+    <string name="max_lean">최대 기울기</string>
+    <string name="ride_title_date_format">MM월dd일</string>
+    <string name="default_ride_title">%1$s 주행기록</string>
+    <string name="rename_ride_title">제목 수정</string>
+    <string name="delete_ride_title">기록 삭제</string>
+    <string name="delete_ride_message">\"%1$s\" 기록을 삭제할까요? 되돌릴 수 없습니다.</string>
+    <string name="delete">삭제</string>
+
+    <!-- Settings -->
+    <string name="settings_title">설정</string>
+    <string name="settings_subtitle">환경 설정</string>
+    <string name="section_display">디스플레이</string>
+    <string name="speed_unit">속도 단위</string>
+    <string name="pressure_unit">공기압 단위</string>
+    <string name="section_sensors">센서 및 블루투스</string>
+    <string name="tpms_sensor">TPMS 센서</string>
+    <string name="tpms_sensor_desc">타이어 공기압 모니터링 활성화</string>
+    <string name="connection_status">연결 상태</string>
+    <string name="connected">연결됨</string>
+    <string name="disconnected">연결 안됨</string>
+    <string name="connect">연결</string>
+    <string name="disconnect">해제</string>
+    <string name="calibration_title">기울기 센서 영점 조절</string>
+    <string name="calibration_desc">센서의 수평 영점을 초기화합니다.</string>
+    <string name="calibrate_button">영점 조절하기</string>
+    <string name="calibrating">영점 조절 중…</string>
+    <string name="calibration_reset">영점 보정값이 초기화되었습니다</string>
+    <string name="app_version">에브리바리 텔레메트리 v1.1.0</string>
+
+    <!-- Dialogs -->
+    <string name="dialog_connect_title">센서 연결</string>
+    <string name="front_sensor_id">앞바퀴 센서 ID</string>
+    <string name="rear_sensor_id">뒷바퀴 센서 ID</string>
+    <string name="cancel">취소</string>
+    <string name="confirm">확인</string>
+    <string name="dialog_disconnect_title">연결 해제</string>
+    <string name="dialog_disconnect_desc">연결을 끊으면 TPMS 센서 모니터링이\n즉시 종료됩니다. 계속하시겠습니까?</string>
+    <string name="ble_permission_required">TPMS 센서 연결을 위해 블루투스 권한이 필요합니다.</string>
+    <string name="reset_tpms_ids">센서 ID 초기화</string>
+    <string name="tpms_ids_reset">센서 ID가 초기화되었습니다</string>
+    <string name="dialog_reset_title">센서 ID 초기화</string>
+    <string name="dialog_reset_desc">초기화하면 저장된 센서 ID가 삭제되고\nTPMS가 꺼집니다. 계속하시겠습니까?</string>
+
+    <!-- Log Screen -->
+    <string name="ride_log">상세 주행 로그</string>
+    <string name="session_summary">주행 요약</string>
+    <string name="selected_point_telemetry">선택된 지점 텔레메트리</string>
+    <string name="tap_points_hint">지도 위 궤적을 탭하여 상세 정보를 확인하세요.</string>
+    
+    <!-- Service -->
+    <string name="service_title">에브리바리 주행 기록 중</string>
+    <string name="service_desc">텔레메트리 데이터를 기록하고 있습니다...</string>
+</resources>
