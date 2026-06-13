@@ -1,0 +1,194 @@
+# PRD: Speedo — 모터사이클 주행 계기판 앱
+
+> 작성: Android-PRD-Builder | 최종 수정: 2026-06-10
+> 상태: Confirmed (To-Be 목표 사양) — 제품 결정 항목 전부 확정. 잔여 항목은 TPMS 센서 프로토콜(의도적 "미완성" 명시)뿐.
+> 패키지: `kr.yooreka.speedo` | 아키텍처: Clean Architecture(data/domain/ui) + Hilt + Room + Jetpack Compose
+> 기준: **To-Be(목표 사양)** — 현재 구현 사실 + 완성 목표를 함께 명시. 미확정 수치는 임의로 채우지 않고 🔲 TBD 로 표기.
+
+---
+
+## 1. Project Overview
+
+### 1.1 목적 (Purpose)
+모터사이클 라이더의 스마트폰을 주행 계기판으로 사용하여, 주행 중 다음 4종 지표를 실시간으로 표시하고 주행 단위로 기록·리뷰할 수 있게 한다.
+- GPS 기반 속도 (km/h 또는 mph)
+- 기기 기울기(roll) 기반 차체 기울기 각도 및 세션 최대 기울기
+- 가속도 센서 기반 급제동 이벤트(LIGHT/MODERATE/HARD)
+- BLE TPMS 센서 기반 앞/뒤 타이어 공기압·온도·배터리 전압
+
+### 1.2 타겟 유저 (Target User)
+- 1차 타겟: 모터사이클 라이더(스마트폰을 차량에 거치하여 사용).
+- 사용 환경: 옥외 주행 중. GPS 수신 가능 환경, 화면 상시 시인 상태.
+- 사용 맥락: 주행 시작 시 기록을 켜고, 주행 종료 후 기록 화면에서 주행을 리뷰한다.
+
+### 1.3 수익 모델
+- 기본 무료 + 배너/전면 광고(AdMob).
+- 인앱 결제 1종 `remove_ads_premium`(소비형 아님, 영구) 구매 시 광고 제거.
+  근거: `BillingRepository.kt:24,123-125`
+- 프리미엄 잠금 범위는 **광고 제거 전용**으로 확정. 그 외 모든 기능은 무료 사용자에게도 동일 제공한다(기능 게이팅 없음). To-Be에서도 동일 유지.
+
+---
+
+## 2. Core User Flows & Features
+
+표기 규칙: "현재 동작"은 코드 검증 가능 사실, "목표"는 To-Be 추가 요구사항. 정량 수치는 검증 가능 형태로 기술.
+
+### 2.1 화면 구성 / 내비게이션
+- 앱 실행 → Splash 화면 표시 후 메인으로 전환. 근거: `MainActivity.kt:85-94`, `SplashScreen.kt`
+  - **현재 동작**: Splash 진입 시 런타임 권한 요청(ACCESS_FINE/COARSE_LOCATION, Android 13+ POST_NOTIFICATIONS). 이미 모두 허용 시 요청 생략. 권한 결정(허용/거부 무관) 직후부터 2,000ms 경과 시 메인 전환. 근거: `SplashScreen.kt:50-83`
+  - **목표(To-Be) — 권한 게이트 확정**: 위치/알림은 핵심 권한으로 간주한다. 거부 시 메인으로 진행하지 않고, "이 권한이 있어야 앱을 사용할 수 있다"는 안내를 표시한 뒤 앱을 종료한다(허용 시에만 2,000ms 후 메인 진입). 근거: To-Be 확정
+    - ⚠️ 검토 권고(객관적): POST_NOTIFICATIONS 거부를 앱 시작 차단 사유로 두는 것은 Android 일반 관행과 다름(알림 없이도 핵심 동작 가능). 본 PRD는 사용자 확정에 따라 알림도 시작 필수로 명세하되, 구현 전 재검토 대상으로 표기.
+  - BLE 권한은 Splash에서 요청하지 않는다(F-16/설정에서 요청 — §3.3 참조).
+- 메인은 좌우 스와이프 가능한 3개 탭: `Monitor(대시보드)` / `Records(주행 목록)` / `Settings(설정)`. 근거: `MainActivity.kt:111-112,126-130`
+- 주행 목록에서 항목 선택 → 해당 주행 상세 로그(`Log`) 화면으로 이동. 근거: `MainActivity.kt:98-105,185-189`
+- 뒤로 가기: 메인에서 뒤로 가기 버튼을 2,000ms 이내에 2회 누르면 앱 종료. 1회만 누르면 "한 번 더 누르면 종료" 토스트 표시. 근거: `MainActivity.kt:117-124`
+
+| # | Feature | Input | Output | Expected Behavior (정량적) | 근거 |
+|---|---------|-------|--------|---------------------------|------|
+| F-01 | 속도 표시 | GPS Location(speed, speedAccuracy) | 정수 속도값 + 단위 | `hasSpeed=false` → 0. `hasSpeedAccuracy && speed≤accuracy` → 0. `speed<0.7 m/s(≈2.5km/h)` → 0. 그 외 `km/h = m/s×3.6`. 표시값은 정수로 절삭. | `SpeedResolver.kt:17,25-28`, `DashBoardViewModel.kt:72-76` |
+| F-02 | 속도 단위 변환 | 설정값 speedUnit ∈ {KM/H, MPH} | 변환된 정수 속도 | MPH 선택 시 `mph = km/h × 0.621371` 후 정수 절삭. 기본값 KM/H. | `DashBoardViewModel.kt:72-76`, `UserPreferencesRepository.kt:20,43` |
+| F-03 | 차체 기울기 표시 | Rotation Vector(자이로 융합) + Gravity 센서 + 영점 offset | `roll = 정수°` | `roll = toDegrees(atan2(x, √(y²+z²))) − offset`. Rotation Vector를 우선 사용해 선회 중 원심가속도에 의한 오차를 최소화하고, 미지원 기기만 Gravity 센서로 폴백. | `SensorData.kt:24-37`, `GravityRepositoryImpl.kt` |
+| F-04 | 기울기 영점 보정 | 사용자의 보정 실행(센서 정지 상태) | offset(도) 저장 | 보정 시 센서 미가동이면 start 후 첫 유효 샘플 대기(타임아웃 2,000ms). 유효 샘플 도착 시 현재 roll을 offset으로 저장, 타임아웃 시 기존 offset 유지. offset은 앱 프로세스 종료 전까지 메모리 유지(영속 아님). | `LeanCalibrationRepositoryImpl.kt:25-56` |
+| F-05 | 급제동 감지 | 가속도 y축 시계열 | BrakeEvent(NONE/LIGHT/MODERATE/HARD) + force | 저역통과 `filtered = 0.8×raw + 0.2×prev`. `Δ=|filtered−prev|`. 직전 이벤트 후 2,000ms(쿨다운) 경과 + Δ≥3.5 시: Δ≥7.0→HARD, Δ≥4.9→MODERATE, 그 외→LIGHT. ⚠️ 현행 한계: 대시보드에서는 감지하나 **주행 로그에는 미기록**(저장 시 `brakeEvent=NONE`/`brakeForce=0f` 고정). 목표(F-13b)에서 시간주기 행에 함께 저장. | `GetDashboardTelemetryUseCase.kt:25-27,51-65`, `TelemetryRepositoryImpl.kt:150-151` |
+| F-06 | 주행 거리 누적 | GPS 좌표열(lat,lng,accuracy) | 누적 거리(km) | (0,0) 좌표 무시. 정확도>25m 측위 무시. 직전 채택 좌표와의 구간 거리<2m이면 무시(기준점 유지). 그 외 구간 거리를 WGS84(`Location.distanceBetween`)로 누적. 첫 유효 좌표는 기준점만 설정. | `RideDistanceTracker.kt:48-62`, `TelemetryRepositoryImpl.kt:51-58,136,220,223` |
+| F-07 | TPMS 표시 | BLE TPMS 광고 패킷(앞/뒤) | 앞/뒤 압력·온도·전압 + 경고색 | 표시는 설정 `showTpmsData=true`일 때만. 압력 단위 PSI/BAR(BAR=PSI×0.0689476). 온도 정수°, 전압 `%.1fV`. **🔲 미검증: BLE manufacturerData 파싱이 구현되어 있으나(범용 iBar/SYKIK/Sysgration 추정 오프셋: payload offset6=압력 Pa→PSI, offset10=온도 0.01℃, offset14=배터리 %→2.0~3.0V, offset15=누수 플래그) 바이트 매핑은 인터넷 공개 자료 기반 추정값이며, 실 보유 센서로 실제 동작/정확도를 확인한 적 없음(PRD 초안 시점엔 더미 하드코딩이었고 이후 본 파싱으로 교체됨). payload 16바이트 미만이면 무시, 미수신 시 기본값 0.** | `DashBoardViewModel.kt:52-101`, `TpmsDataSource.kt:90-151` |
+| F-08 | TPMS 경고색 | 현재 압력, 기준압(baseline) | 색상(녹/황/적) | `diff% = (current−baseline)/baseline×100`. current≤0 → 중립(데이터 없음). `−5≤diff≤15` → 녹색. `−15≤diff≤25`(녹 미해당분) → 황색. 그 외 → 적색. **목표: baseline을 사용자 설정값으로 사용(현재 코드는 앞 36/뒤 40 PSI 고정).** | `DashBoardViewModel.kt:52-62,78-80` |
+| F-08a | 적정공기압 설정 (목표) | 앞/뒤 기준압 입력 | 저장된 baseline | 입력·표시 단위는 설정의 압력 단위(PSI/BAR)를 따른다. 내부 저장 및 경고색 계산은 PSI 기준으로 통일한다(BAR 입력 시 `PSI = BAR ÷ 0.0689476`로 환산 저장). 기본값 앞 36 / 뒤 40 PSI. **입력 허용 범위 10~60 PSI(경계 포함); 범위 밖 입력은 거부**(BAR 표시 시 약 0.69~4.14 BAR). | (신규 — To-Be) |
+| F-09 | 주행 기록 시작/종료 | 사용자의 기록 토글 | 기록 상태, 저장된 주행 | 미기록 상태에서 토글 → 시작 확인 다이얼로그 표시 → 확인 시 기록 시작. 기록 중 토글 → 즉시 종료. 종료 시 광고 미제거 사용자에게 전면 광고 1회 노출. | `DashBoardViewModel.kt:110-127` |
+| F-10 | 기록 영속화 | 기록 중 텔레메트리 스트림 | RideEntity + TelemetryEntity(N건) | 기록 시작 시 RideEntity 1건 생성(제목=날짜 포맷). **현행 결함**: 기록된 뱅킹각이 실제보다 현저히 낮게 저장되는 이슈 발생 (실시간 표시와 기록 데이터 간의 불일치). 버퍼 100건 누적 시 DB flush. **목표**: 기록 정밀도 개선 및 데이터 누락 방지를 통해 해당 이슈를 해결한다. | `TelemetryRepositoryImpl.kt:41-42,89-204` |
+| F-11 | 백그라운드 기록 | 기록 시작/종료 | 포그라운드 서비스 알림 | 기록 시작 시 `foregroundServiceType=location` 포그라운드 서비스를 IMPORTANCE_LOW 상시 알림과 함께 구동. 종료 시 서비스/알림 제거. 시스템 재시작 시 START_STICKY. | `RecordingService.kt:19-57`, `AndroidManifest.xml:9,36-40` |
+| F-12 | 주행 목록 | (없음) | 주행 요약 리스트 + 총거리 | Records 화면. 주행을 `startTime` 내림차순(최신 우선)으로 표시. 화면 상단에 전체 주행 거리 합계를 `%.1f km`로 표시. 각 카드: 제목, 날짜(`MMM dd, yyyy`), 거리(`%.1f km`), DURATION(`HH:MM:SS`), TOP SPD, LEAN(`%.0f°`). 광고 미제거 사용자에게 하단 배너. 페이지네이션 없음(LazyColumn 전체 로드). | `RecordsViewModel.kt:31-58`, `RecordsScreen.kt:116-128,306-308`, `RideDao.kt:22` |
+| F-12a | 주행 최고 속도 표시 | (없음) | TOP SPD (km/h) | ✅ 해결됨. 주행 카드의 TOP SPD는 해당 주행의 실제 최고 속도(`RideEntity.maxSpeed`, km/h)를 표시한다. 기록 중 위치 수신마다 세션 최고 속도를 갱신하고 종료 시 저장한다(maxLean과 동일 패턴). 신규 주행부터 채워지며, 컬럼 추가(버전 3) 이전 주행이 잔존할 경우 0으로 표시. | `RideEntity.kt:14`, `TelemetryRepositoryImpl.kt:139-140,197`, `RecordsViewModel.kt:45`, `RecordsScreen.kt:307` |
+| F-13 | 주행 상세 로그 | rideId | 지도 경로 + 요약/구간 텔레메트리 | Log 화면. 상단 80% Google Map에 주행 경로를 구간별 색상 Polyline(width 12)으로 표시, 카메라는 전체 경로 bounds에 맞춤. 하단 시트는 기본 SESSION SUMMARY(TIME `HH:MM:SS`, DIST km, TOP SPD km/h=텔레메트리 최고속도, MAX LEAN °) 표시. 지도 탭 시 가장 가까운 점 선택 → SEGMENT TELEMETRY(코너 속도 km/h, 기울기° + 방향 L/R) 표시. | `LogViewModel.kt:51-77`, `LogScreen.kt:63-145,389-491` |
+| F-13a | 경로 시각화 개선 | speed, roll(부호 있음) | 구간 색상 + 선 스타일 | **뱅킹각(Roll)**: 선의 색상으로 표기 (어두운 계열). <15°: Deep Green(`0xFF15803D`), <30°: Dark Amber(`0xFFB45309`), <45°: Dark Orange(`0xFF9A3412`), ≥45°: Deep Red(`0xFF7F1D1D`).<br>**속도(Speed)**: 선의 스타일(삼각형 스탬프)로 표기. <100km/h: 실선, <200km/h: 희소 삼각형(`ic_path_arrow`), ≥200km/h: 밀집 삼각형. | `LogScreen.kt:62-72,114`, `TelemetryRepositoryImpl.kt:117-122` |
+| F-13b | 기울기/제동 시간주기 로깅 (목표) | 중력·가속도 센서 스트림 | TelemetryEntity(N건) | **목표 설계(구현 대기)**. 텔레메트리 저장을 GPS 콜백 종속에서 분리하여 기록 정밀도를 개선한다. 저장값은 부호 있는 순간 기울기 및 가속도 기반 제동 데이터 등을 포함한다. | (신규 — To-Be) / 현행 한계: `TelemetryRepositoryImpl.kt` |
+| F-13c | 경로 위치 보간 (목표) | GPS 앵커 + 시간주기 행 | 매끄러운 색상 path | **목표 설계(구현 대기)**. F-13b의 시간주기 행은 위치를 `null`로 두고(새 GPS 픽스 시점 행만 실좌표 보유, `TelemetryEntity.lat/lng` nullable 재활용 → 스키마 무변경), 렌더 시 **타임스탬프 비례로 위치를 보간**해 5Hz 기울기 색을 배치한다. 기본 **선형 보간**, 미관 옵션 **Catmull-Rom 스플라인**(스플라인은 추정 곡선으로 급코너 오버슈트 가능 — 정확도 아닌 미관용으로 한정). 현재 `mapNotNull`로 null 좌표를 버리는 로직을 보간으로 교체. | (신규 — To-Be) / 교체 대상: `LogScreen.kt:88-94`, `TelemetryEntity.kt:16-17` |
+| F-14 | 주행 제목 수정 | rideId, 새 제목 | 갱신된 title | 입력값 trim 후 빈 문자열이면 무시(저장 안 함). 다이얼로그 저장 버튼은 공백일 때 비활성화. `UPDATE rides SET title` 직접 실행. 최대 길이 제한 없음(단일 행 입력). | `RecordsViewModel.kt:60-67`, `RecordsScreen.kt:421`, `RideDao.kt:19-20`, `UpdateRideTitleUseCase.kt:12` |
+| F-15 | 주행 삭제 | rideId | 삭제 결과 | 삭제 확인 다이얼로그("되돌릴 수 없습니다") 확인 시 삭제. cascade는 **애플리케이션 레벨 수동 처리**: telemetry_logs(rideId) 먼저 삭제 후 rides 삭제(DB 외래키 제약 없음). | `RecordsScreen.kt:89-98,488`, `DeleteRideUseCase.kt:14-17`, `TelemetryDao.kt:21-22` |
+| F-16 | TPMS 센서 등록/해제 | 앞/뒤 센서 식별자(MAC 또는 이름) | 저장된 센서 ID, TPMS 표시 ON | 설정에서 앞/뒤 센서 ID 입력 → 저장 시 `showTpmsData=true` 자동 설정. 초기화 시 ID 공백 + `showTpmsData=false`. 스캔은 ID가 1개 이상 설정된 경우에만 시작. 매칭은 MAC/이름에 입력 ID 포함(대소문자 무시). | `UserPreferencesRepository.kt:66-81`, `TpmsDataSource.kt:43-69` |
+| F-17 | 광고 제거 구매 | 결제 실행 | isAdRemoved=true | `remove_ads_premium` 구매 완료 시 광고 제거 + 미승인 구매 자동 acknowledge. 앱 시작 시 기존 구매 복원 질의. | `BillingRepository.kt:59-135` |
+
+### 2.2 대시보드 갱신 사양
+- 텔레메트리 스트림은 100ms 주기로 샘플링하여 UI에 반영. 근거: `DashBoardViewModel.kt:66`
+- 구독 종료 후 5,000ms간 상태 공유 유지(WhileSubscribed). 근거: `DashBoardViewModel.kt:106`
+
+---
+
+## 3. Data & Technical Requirements
+
+### 3.1 클라이언트 상태 범위 (Client State Scope)
+- **화면(휘발)**: `DashBoardState`(표시 문자열, 경고색, 기록 여부 등). 근거: `DashBoardState.kt`
+- **프로세스 메모리(앱 종료 시 소멸)**: 기울기 영점 `offsetDegrees`, 기록 세션 누적값(maxLean, 거리, 시작시각). 근거: `LeanCalibrationRepositoryImpl.kt:22`, `TelemetryRepositoryImpl.kt:44-46`
+- **영구(DataStore)**: showTpmsData, speedUnit, pressureUnit, frontTpmsId, rearTpmsId, launchCount. 근거: `UserPreferencesRepository.kt:18-25,31-38`
+  - 목표 추가: 사용자 설정 적정공기압(앞/뒤 baseline) 영속 키 — 신규 필요. **PSI 기준으로 저장**(입력 단위 무관). 🔲 TBD: 키 네이밍/마이그레이션.
+- **영구(Room)**: rides, telemetry_logs 2테이블. 근거: `SpeedoDatabase.kt`
+
+### 3.2 필수 데이터 구조 (Data Structures)
+- `RideEntity`(`rides`): id(PK,autoInc), title:String(non-null), startTime:Long, endTime:Long?, totalDistance:Float(km, 기본0), maxLean:Float(도, 기본0), maxSpeed:Float(km/h, 기본0), duration:Long(ms, 기본0). 근거: `RideEntity.kt`
+- DB 버전 3. `maxSpeed` 컬럼은 버전 3에서 추가됨. 현재 마이그레이션 정책은 **개발 단계 — 파괴적 마이그레이션**(`fallbackToDestructiveMigration`)으로, 명시적 마이그레이션 미정의 경로는 DB를 재생성한다(데이터 미보존). 🔲 TBD(출시 전): 데이터 보존이 필요하면 명시적 `Migration` 작성으로 전환 필요. 근거: `SpeedoDatabase.kt:12`, `DatabaseModule.kt`
+- `TelemetryEntity`(`telemetry_logs`): id(PK,autoInc), rideId:Long, timestamp:Long, speed:Float, roll:Float, brakeEvent:BrakeEvent, brakeForce:Float, latitude:Double?, longitude:Double?. 근거: `TelemetryEntity.kt`
+- `rideId`는 DB 외래키 제약 없이 컬럼으로만 존재. 주행 삭제 시 연관 telemetry_logs는 애플리케이션 코드에서 수동 삭제(F-15). 🔲 TBD(목표): FK 제약/인덱스 도입 여부.
+- 도메인 모델: `LocationData`(lat,lng,speed,accuracy), `GravityData`(x,y,z), `AccelerometerData`(x,y,z,timestamp), `TpmsData`(앞/뒤 pressurePsi/temperature/batteryVoltage, timestamp). 근거: `SensorData.kt`
+- `TelemetryEntity.roll`은 **부호 있는** 기울기(좌/우 방향 보존). `latitude/longitude`는 nullable이며, 목표 설계(F-13c)에서 센서 시간주기 행은 null, GPS 픽스 행만 실좌표를 가진다.
+
+### 3.2a 텔레메트리 샘플링 정책 (확정)
+- **GPS**: `PRIORITY_HIGH_ACCURACY`, 요청 주기 1000ms(최소 500ms) = 1~2Hz. **현행 1Hz 유지**(GNSS 실효 상한이 보통 1Hz, 충전 사용 전제로 배터리 절감 동기 없음, GPS 하향 시 코너 보간 오차 `s≈d²/(8R)`가 간격 제곱으로 증가하여 path·거리 정확도 악화). 근거: `LocationDataSource.kt:53-57`
+- **중력 센서**: `SENSOR_DELAY_UI`(약 60ms, ~16Hz). 근거: `GravitySensor.kt:29`
+- **목표 저장 정책(F-13b)**: 기울기·제동을 GPS 비종속 **시간주기 200ms(5Hz)** 로 저장(부호 있는 순간 기울기). 위치는 GPS 픽스 시점만 채우고 나머지는 보간(F-13c). 주기 100~500ms 범위 조절 가능, 기본 200ms. 저장량 5Hz×2시간 ≈ 36,000행/주행.
+
+### 3.2b 경로 정밀도 — 검토했으나 보류한 대안 (Design History)
+F-13c(시간주기 행의 지도 위치 결정)의 대안으로 아래를 검토했고, 현재는 **보류**한다. 채택안은 F-13c(선형 보간, 미관 옵션 Catmull-Rom).
+
+- **대안 A — GPS 레이트 상향(best-effort 5Hz, 미지원 시 1Hz 폴백)**
+  - 내용: `LocationRequest` 주기를 ~200ms로 요청해 실측 앵커 밀도를 높임. 기기 미지원 시 1Hz로 자연 폴백.
+  - 장점: **실측 기반**이라 모델 위험 0, 코너 path·거리 정확도 향상. 충전 사용 전제로 배터리 제약 없음.
+  - 보류 사유: 효과가 **기기별 GNSS 실제 출력률에 의존**(다수 기기 1Hz 상한)하여 보장 불가. 1Hz 환경에선 현(chord) 오차가 이미 ~1.2m(60km/h·R=30m) 수준이라 단순 보간 대비 한계 이득. → "여유되면 적용" 후보로 보류.
+- **대안 B — 물리 기반 동역학 보간(lean→yaw dead reckoning + GPS 앵커 보정)**
+  - 내용: 모터사이클 정상선회식 `tan θ = v²/(gR)` → `ω = g·tanθ/v`로 조밀 lean과 속도로부터 회전각속도를 추정, 헤딩·궤적을 적분하고 양끝을 GPS로 구속해 코너를 호(arc)로 복원.
+  - 장점: 이론상 좌표·센서 빈도를 물리적으로 정합. GPS가 희박할수록 이득이 큼.
+  - 보류 사유(객관적 결함): ① **정상상태 가정**이 턴인/트레일브레이킹/연속코너/**노면 뱅킹**에서 깨짐. ② 측정값이 진짜 lean이 아니라 **중력센서 roll**이라 선회 중 원심가속도로 오염됨(Rotation Vector 도입으로 완화되었으나 여전히 모델 단순화 한계 존재). ③ 적분 **드리프트** → 곡률 최소화 스무더 등 추가 설계 필요. ④ **자이로 활용 가능성**: `RotationVectorSensor` 도입으로 자이로 데이터 활용이 가능해졌으나, lean→yaw 모델 단독 의존보다는 직접적인 yaw rate 측정이 권장됨. ⑤ 산출물이 시각화(지도 path 위치)인데 풀 센서퓨전 비용이 과함. ⑥ 1Hz에선 체감 이득 작음.
+  - 재추진 전제: 채택 시 **자이로(`TYPE_GYROSCOPE`/rotation-vector)를 통해 yaw를 직접 측정**하거나 융합할 것. → R&D/희박 GPS 시나리오 전용으로 보류.
+
+### 3.3 외부 의존성 / 권한
+- 권한(매니페스트 선언): ACCESS_FINE/COARSE_LOCATION, BODY_SENSORS, FOREGROUND_SERVICE(+_LOCATION), POST_NOTIFICATIONS, INTERNET, BLUETOOTH/_ADMIN/_SCAN(neverForLocation)/_CONNECT, BILLING. 근거: `AndroidManifest.xml:5-18`
+  - 런타임 권한 요청 플로우(확정):
+    - 위치(FINE/COARSE) + 알림(Android 13+): Splash 진입 시 요청. **거부 시 안내 후 앱 종료**(핵심 권한 게이트, §2.1·§4.6).
+    - BLE(BLUETOOTH_SCAN/BLUETOOTH_CONNECT): **설정 화면에서 TPMS 센서 연결을 시도하는 시점**에 요청(F-16). TPMS 미사용자에게는 요청하지 않음.
+- 센서: FusedLocation(GPS), Rotation Vector(자이로 융합), Gravity 센서, Accelerometer 센서. 근거: `data/sensor/datasource/*`
+- 통신: BLE 스캔(SCAN_MODE_LOW_LATENCY)으로 TPMS 패킷 수신. 근거: `TpmsDataSource.kt:79-82`
+- 서드파티: Google AdMob(App ID 매니페스트 선언), Google Play Billing, Google Maps(`MAPS_API_KEY`). 근거: `AndroidManifest.xml:32-43`
+
+### 3.4 Architecture & UDF Mapping
+- **UI Layer**:
+  - `UiState`: `LogState` (isLoading, title, date, duration, distance, maxLean, maxSpeed, routePoints, selectedPoint)
+  - `UiEvent`: `selectPoint(TelemetryEntity?)`
+- **Domain Layer**: `GetRideDetailUseCase`, `GetRideTelemetryUseCase`
+- **Data Layer**: `RideDao`, `TelemetryDao`, `RideEntity`, `TelemetryEntity`
+- **Required Resources**:
+  - `Color`: `LeanGreen_Dark`(0xFF15803D), `LeanYellow_Dark`(0xFFB45309), `LeanOrange_Dark`(0xFF9A3412), `LeanRed_Dark`(0xFF7F1D1D)
+  - `Drawable`: `ic_path_arrow` (경로 진행 방향 표시용 삼각형)
+
+---
+
+## 4. Exception Handling & Edge Cases
+
+### 4.1 센서/GPS
+- GPS 미수신(0,0 좌표): 속도 0 처리, 거리 누적 제외. 근거: `RideDistanceTracker.kt:48`, `TelemetryRepositoryImpl.kt:133`
+- GPS 정지 노이즈: 속도 정확도 게이트 + 0.7 m/s 데드밴드로 0 처리. 근거: `SpeedResolver.kt:25-28`
+- 저정확도 측위(>25m): 거리 누적에서 제외. 근거: `TelemetryRepositoryImpl.kt:223`
+- 기울기 센서 무효(0,0,0): roll 0° 반환(영점만큼 음수 표시되는 오류 방지). 근거: `SensorData.kt:34-36`
+- **기록 데이터 불일치 이슈**: 대시보드 실시간 표시는 정상이나, 저장된 로그의 뱅킹각이 실제보다 현저히 낮게 기록되는 이슈가 보고됨. 해당 로직은 `TelemetryRepositoryImpl.kt`의 데이터 집계 및 저장 주기와 관련이 있는 것으로 파악됨.
+- 기록 시 기울기는 구간 내 절대값 최대 샘플의 **부호를 보존**해 저장(좌/우 방향 유지). 세션 요약 maxLean은 절대값. 근거: `TelemetryRepositoryImpl.kt:116-127`
+- 영점 보정 중 유효 샘플 미수신: 2,000ms 타임아웃 후 기존 offset 유지. 근거: `LeanCalibrationRepositoryImpl.kt:33-42`
+
+### 4.2 TPMS / BLE
+- 블루투스 비활성/스캐너 없음: 스캔 시작하지 않음(예외 없이 무시). 근거: `TpmsDataSource.kt:59`
+- 센서 ID 미설정: 스캔 시작하지 않음. 근거: `TpmsDataSource.kt:52`
+- payload 파싱 예외: catch 후 로그만 남기고 무시. 근거: `TpmsDataSource.kt:128-130`
+- 압력 데이터 없음(current≤0): 경고색 중립 표시. 근거: `DashBoardViewModel.kt:53`
+- 🔲 미검증/TBD: 압력값 파싱은 인터넷 공개 자료 기반 추정 바이트 오프셋으로 구현되어 있으나(F-07), 실 보유 센서로 동작/정확도를 확인한 적 없음. To-Be에서 실 센서 프로토콜(바이트 오프셋·단위·변환식)을 실측으로 확정·검증 필요. 센서 연결 끊김/타임아웃(stale 데이터) 처리 규칙도 미정의.
+
+### 4.3 공백/빈 데이터
+- 주행 목록 0건: 현재 전용 빈 상태(Empty State) UI 없음. 헤더 + 총거리 카드(0.0) + 빈 리스트만 렌더링. 🔲 TBD(목표): 빈 상태 안내 문구/일러스트 정의 여부. 근거: `RecordsScreen.kt:115-128`
+- 주행 상세 텔레메트리 0건: 경로 점 0개 → Polyline 미표시(점 2개 미만이면 선 없음), 카메라는 마지막 위치 또는 기본값. SESSION SUMMARY는 표시되나 TOP SPD=0. 근거: `LogScreen.kt:269-300,318`
+- 위치 보간(F-13c, 목표): 위치 null인 시간주기 행은 앞뒤 GPS 앵커의 타임스탬프 비례로 보간한다. 한쪽 앵커만 존재(주행 시작 전/종료 후 구간)하면 가장 가까운 앵커로 클램프한다. GPS 앵커가 0개면 path를 그리지 않는다.
+- 잘못된 rideId(-1) 또는 미존재 주행: Log 화면에 각각 "Error: Invalid Ride ID" / "Record not found" 표시(영문 하드코딩). 🔲 TBD(목표): 다국어/UX 정의. 근거: `LogViewModel.kt:47,70`
+
+### 4.4 유효성 / 입력 검증
+- 🔲 TBD: TPMS 센서 ID 입력 형식 검증(MAC 형식/길이/허용 문자) 규칙.
+- 주행 제목 수정(F-14): trim 후 빈 문자열이면 저장 거부, 저장 버튼 비활성화. 최대 길이 제한 없음. 🔲 TBD(목표): 최대 길이 도입 여부.
+- 적정공기압 입력 단위는 설정의 압력 단위(PSI/BAR)를 따르고 내부는 PSI로 저장. 기본값 앞 36/뒤 40 PSI. 입력 허용 범위 **10~60 PSI(경계 포함)**, 범위 밖 입력은 거부.
+
+### 4.5 결제 / 네트워크
+- Billing 서비스 연결 끊김: 다음 요청 시 재연결 시도(현재 자동 재시도 미구현). 근거: `BillingRepository.kt:54-57`
+- Billing 응답 비정상(OK 아님): 구매/상품 갱신 미수행. 근거: `BillingRepository.kt:48,67,86`
+- 🔲 TBD: 광고 로드 실패 시 동작, 오프라인 시 동작 정의.
+
+### 4.6 권한 거부
+- **현재 동작**: 위치/알림 권한을 Splash에서 일괄 요청하나, 허용 여부와 무관하게 메인으로 진행(차단/재안내 없음). 근거: `SplashScreen.kt:62-64,79-83`
+- **목표(To-Be) 확정**:
+  - 위치/알림 거부 → "이 권한이 있어야 앱을 사용할 수 있다"는 안내 표시 후 앱 종료. 메인 진입 차단.
+  - BLE 권한 거부 → 설정의 TPMS 연결 시점에서만 발생. 거부 시 TPMS 연결/스캔을 시작하지 않고 사용자에게 권한 필요 안내(앱 종료는 하지 않음). 그 외 기능(속도/거리/기록/지도)은 정상 동작.
+
+---
+
+## 5. 미해결 항목 요약 (Open Items — 임의 판단 보류)
+다음은 코드만으로 확정할 수 없어 사용자 확답이 필요한 항목이다. 확정 전까지 위 본문에 🔲 TBD 로 유지한다.
+1. ~~프리미엄 잠금 범위~~ — ✅ **확정**: 광고 제거 전용, 기능 게이팅 없음 (§1.3)
+2. ~~Splash 노출 시간~~ — ✅ **해결**: 권한 결정 후 2,000ms (§2.1)
+3. ~~적정공기압 사용자 설정~~ — ✅ **확정**: 단위=설정 따름, 저장=PSI, 기본 36/40, **입력 범위 10~60 PSI** (F-08a, §4.4)
+4. TPMS 실 센서 프로토콜(바이트 매핑)·연결 끊김 처리 — *파싱은 인터넷 공개 자료 기반 추정 오프셋으로 구현됐으나(초안 시점 더미 → 이후 교체) 실 센서로 동작 미확인. "미검증" 명시 확정* (F-07, §4.2)
+5. ~~Records/Log 화면 사양~~ — ✅ **해결**: 정렬·필드·지도/색상·구간 텔레메트리 명세 완료 (F-12, F-13, F-13a). Records "TOP SPD" 하드코딩 불일치도 ✅ 수정 완료(F-12a, 실제 `maxSpeed` 표시. DB는 버전 3, 개발 단계 파괴적 마이그레이션)
+6. ~~제목/삭제 유효성·cascade~~ — ✅ **해결**: trim+non-blank, 수동 cascade 명세 완료 (F-14, F-15, §3.2)
+7. ~~런타임 권한~~ — ✅ **확정**: 위치/알림 거부 시 안내 후 종료(핵심 게이트), BLE는 설정 TPMS 연결 시점 요청 (§3.3, §4.6). ⚠️ 알림 시작-차단은 재검토 권고
+8. ~~빈 상태~~ — ✅ **해결**: 현재 전용 Empty State 없음을 사실 기재. 목표 도입 여부만 ❓ (§4.3)
+9. ~~LogScreen 기울기 방향(L/R) 버그~~ — ✅ **수정 완료**: abs 저장 제거, 부호 보존 (F-13a, §4.1)
+10. **기울기 기록 누락 및 데이터 불일치** — ✅ **설계 확정(구현 대기)**: 기록 정밀도 개선을 위한 시간주기 200ms 분리 저장 + 위치 보간 (F-13b, F-13c, §3.2a, §4.1)
+11. **주행 로그 제동 미기록** — ✅ **설계 확정(구현 대기)**: 시간주기 행에 제동 이벤트/세기 저장 (F-05, F-13b)
+
+> 범례: ✅ 해결(코드 분석/수정 완료) 또는 설계 확정 · 🔧 구현 대기(설계 확정됨) · ❓ 제품 결정 필요 · ⚠️ 검토 권고/유의
+>
+> 🔧 구현 대기(설계 확정): F-13b(기울기/제동 시간주기 200ms 분리 저장), F-13c(경로 위치 보간 — 선형/Catmull-Rom). 스키마 무변경. 보류한 대안(GPS 레이트 상향, 물리 기반 동역학 보간)은 §3.2b에 설계 이력으로 기록.
+>
+> 코드-의도 불일치 추적: (1) Records "TOP SPD" 하드코딩 → ✅ `maxSpeed` 표시로 수정(F-12a). (2) BLE 권한 런타임 미요청 → ✅ 설정 TPMS 연결 시점 요청으로 목표 정의(§3.3·§4.6). (3) LogScreen 기울기 방향 abs 버그 → ✅ 부호 보존으로 수정(F-13a).
+n 기울기 방향 abs 버그 → ✅ 부호 보존으로 수정(F-13a).
