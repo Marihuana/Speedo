@@ -51,7 +51,7 @@
 | F-04 | 기울기 영점 보정 | 사용자의 보정 실행(센서 정지 상태) | offset(도) 저장 | 보정 시 센서 미가동이면 start 후 첫 유효 샘플 대기(타임아웃 2,000ms). 유효 샘플 도착 시 현재 roll을 offset으로 저장, 타임아웃 시 기존 offset 유지. offset은 앱 프로세스 종료 전까지 메모리 유지(영속 아님). | `LeanCalibrationRepositoryImpl.kt:25-56` |
 | F-05 | 급제동 감지 | 가속도 y축 시계열 | BrakeEvent(NONE/LIGHT/MODERATE/HARD) + force | 저역통과 `filtered = 0.8×raw + 0.2×prev`. `Δ=|filtered−prev|`. 직전 이벤트 후 2,000ms(쿨다운) 경과 + Δ≥3.5 시: Δ≥7.0→HARD, Δ≥4.9→MODERATE, 그 외→LIGHT. ⚠️ 현행 한계: 대시보드에서는 감지하나 **주행 로그에는 미기록**(저장 시 `brakeEvent=NONE`/`brakeForce=0f` 고정). 목표(F-13b)에서 시간주기 행에 함께 저장. | `GetDashboardTelemetryUseCase.kt:25-27,51-65`, `TelemetryRepositoryImpl.kt:150-151` |
 | F-06 | 주행 거리 누적 | GPS 좌표열(lat,lng,accuracy) | 누적 거리(km) | (0,0) 좌표 무시. 정확도>25m 측위 무시. 직전 채택 좌표와의 구간 거리<2m이면 무시(기준점 유지). 그 외 구간 거리를 WGS84(`Location.distanceBetween`)로 누적. 첫 유효 좌표는 기준점만 설정. | `RideDistanceTracker.kt:48-62`, `TelemetryRepositoryImpl.kt:51-58,136,220,223` |
-| F-07 | TPMS 표시 | BLE TPMS 광고 패킷(앞/뒤) | 앞/뒤 압력·온도·전압 + 경고색 | 표시는 설정 `showTpmsData=true`일 때만. 압력 단위 PSI/BAR(BAR=PSI×0.0689476). 온도 정수°, 전압 `%.1fV`. **🔲 미검증: BLE manufacturerData 파싱이 구현되어 있으나(범용 iBar/SYKIK/Sysgration 추정 오프셋: payload offset6=압력 Pa→PSI, offset10=온도 0.01℃, offset14=배터리 %→2.0~3.0V, offset15=누수 플래그) 바이트 매핑은 인터넷 공개 자료 기반 추정값이며, 실 보유 센서로 실제 동작/정확도를 확인한 적 없음(PRD 초안 시점엔 더미 하드코딩이었고 이후 본 파싱으로 교체됨). payload 16바이트 미만이면 무시, 미수신 시 기본값 0.** | `DashBoardViewModel.kt:52-101`, `TpmsDataSource.kt:90-151` |
+| F-07 | TPMS 표시 | BLE TPMS 광고 패킷(앞/뒤) | 앞/뒤 압력·온도·전압 + 경고색 | **⚠️ 현재 전혀 동작하지 않음(Known Issue)**: BLE 파싱 로직은 구현되어 있으나 실제 센서와의 정합성이 검증되지 않아 데이터가 표시되지 않음. 향후 실 센서 프로토콜 분석 및 검증을 통해 반드시 정상화해야 할 핵심 기능임. | `DashBoardViewModel.kt:52-101`, `TpmsDataSource.kt:90-151` |
 | F-08 | TPMS 경고색 | 현재 압력, 기준압(baseline) | 색상(녹/황/적) | `diff% = (current−baseline)/baseline×100`. current≤0 → 중립(데이터 없음). `−5≤diff≤15` → 녹색. `−15≤diff≤25`(녹 미해당분) → 황색. 그 외 → 적색. **목표: baseline을 사용자 설정값으로 사용(현재 코드는 앞 36/뒤 40 PSI 고정).** | `DashBoardViewModel.kt:52-62,78-80` |
 | F-08a | 적정공기압 설정 (목표) | 앞/뒤 기준압 입력 | 저장된 baseline | 입력·표시 단위는 설정의 압력 단위(PSI/BAR)를 따른다. 내부 저장 및 경고색 계산은 PSI 기준으로 통일한다(BAR 입력 시 `PSI = BAR ÷ 0.0689476`로 환산 저장). 기본값 앞 36 / 뒤 40 PSI. **입력 허용 범위 10~60 PSI(경계 포함); 범위 밖 입력은 거부**(BAR 표시 시 약 0.69~4.14 BAR). | (신규 — To-Be) |
 | F-09 | 주행 기록 시작/종료 | 사용자의 기록 토글 | 기록 상태, 저장된 주행 | 미기록 상태에서 토글 → 시작 확인 다이얼로그 표시 → 확인 시 기록 시작. 기록 중 토글 → 즉시 종료. 종료 시 광고 미제거 사용자에게 전면 광고 1회 노출. | `DashBoardViewModel.kt:110-127` |
@@ -65,8 +65,15 @@
 | F-13c | 경로 위치 보간 (목표) | GPS 앵커 + 시간주기 행 | 매끄러운 색상 path | **목표 설계(구현 대기)**. F-13b의 시간주기 행은 위치를 `null`로 두고(새 GPS 픽스 시점 행만 실좌표 보유, `TelemetryEntity.lat/lng` nullable 재활용 → 스키마 무변경), 렌더 시 **타임스탬프 비례로 위치를 보간**해 5Hz 기울기 색을 배치한다. 기본 **선형 보간**, 미관 옵션 **Catmull-Rom 스플라인**(스플라인은 추정 곡선으로 급코너 오버슈트 가능 — 정확도 아닌 미관용으로 한정). 현재 `mapNotNull`로 null 좌표를 버리는 로직을 보간으로 교체. | (신규 — To-Be) / 교체 대상: `LogScreen.kt:88-94`, `TelemetryEntity.kt:16-17` |
 | F-14 | 주행 제목 수정 | rideId, 새 제목 | 갱신된 title | 입력값 trim 후 빈 문자열이면 무시(저장 안 함). 다이얼로그 저장 버튼은 공백일 때 비활성화. `UPDATE rides SET title` 직접 실행. 최대 길이 제한 없음(단일 행 입력). | `RecordsViewModel.kt:60-67`, `RecordsScreen.kt:421`, `RideDao.kt:19-20`, `UpdateRideTitleUseCase.kt:12` |
 | F-15 | 주행 삭제 | rideId | 삭제 결과 | 삭제 확인 다이얼로그("되돌릴 수 없습니다") 확인 시 삭제. cascade는 **애플리케이션 레벨 수동 처리**: telemetry_logs(rideId) 먼저 삭제 후 rides 삭제(DB 외래키 제약 없음). | `RecordsScreen.kt:89-98,488`, `DeleteRideUseCase.kt:14-17`, `TelemetryDao.kt:21-22` |
-| F-16 | TPMS 센서 등록/해제 | 앞/뒤 센서 식별자(MAC 또는 이름) | 저장된 센서 ID, TPMS 표시 ON | 설정에서 앞/뒤 센서 ID 입력 → 저장 시 `showTpmsData=true` 자동 설정. 초기화 시 ID 공백 + `showTpmsData=false`. 스캔은 ID가 1개 이상 설정된 경우에만 시작. 매칭은 MAC/이름에 입력 ID 포함(대소문자 무시). | `UserPreferencesRepository.kt:66-81`, `TpmsDataSource.kt:43-69` |
+| F-16 | TPMS 센서 등록/해제 | 앞/뒤 센식별자(MAC 또는 이름) | 저장된 센서 ID, TPMS 표시 ON | 설정에서 앞/뒤 센서 ID 입력 → 저장 시 `showTpmsData=true` 자동 설정. 초기화 시 ID 공백 + `showTpmsData=false`. 스캔은 ID가 1개 이상 설정된 경우에만 시작. 매칭은 MAC/이름에 입력 ID 포함(대소문자 무시). | `UserPreferencesRepository.kt:66-81`, `TpmsDataSource.kt:43-69` |
 | F-17 | 광고 제거 구매 | 결제 실행 | isAdRemoved=true | `remove_ads_premium` 구매 완료 시 광고 제거 + 미승인 구매 자동 acknowledge. 앱 시작 시 기존 구매 복원 질의. | `BillingRepository.kt:59-135` |
+| F-18 | 주행 종료 예상 감지 | 기록 중 속도 스트림, 설정 임계값 | 종료 확인 알림/팝업 | **기록 중 속도가 설정된 시간(T) 동안 연속으로 0(F-01 기준)** 일 경우 '주행 종료 예상' 상태로 간주. <br>1. **알림**: "주행이 종료되었습니까?" 알림 발송. [종료], [계속] 버튼 포함. <br>2. **팝업**: 앱이 포그라운드일 경우 화면에 확인 다이얼로그 표시. <br>[종료] 선택 시 즉시 기록 종료(F-09). [계속] 선택 시 감지 타이머 초기화. 응답 없을 시 기록은 유지하되 알림은 상주. | (신규 — To-Be) |
+| F-18a | 종료 감지 임계값 설정 | 사용자 선택 (3/5/10/OFF 분) | 저장된 임계값 | 기본값 5분. 사용자가 설정에서 감지 시간을 선택하거나 기능을 끌 수 있음(OFF). 내부적으로는 분 단위 정수(0=OFF)로 저장. | (신규 — To-Be) |
+| F-19 | 플로팅 오버레이 위젯 | 앱 백그라운드 전환, 기록 상태 | 플로팅 위젯 표시 | **기록 중** 앱이 백그라운드로 전환될 때(홈 버튼, 다른 앱 전환 등) 자동으로 활성화되어 다른 앱(내비게이션 등) 위에 표시된다. 앱이 다시 포그라운드로 오면 자동으로 제거된다. | (신규 — To-Be) |
+| F-19a | 오버레이 위젯 모드 | 사용자 선택 (3종) | 선택된 모드 위젯 | 설정에서 다음 3가지 중 선택 가능: <br>1. **SPEED+BRAKE**: 현재 속도와 제동 상태 표시. <br>2. **LEAN ONLY**: 현재 뱅킹각(도) 표시. <br>3. **ALL-IN-ONE**: 속도, 제동, 뱅킹각 모두 표시. | (신규 — To-Be) |
+| F-19b | 오버레이 위치/투명도 | 드래그(Long Press 후), 설정값 | 조정된 오버레이 | 오버레이를 롱클릭하여 위치를 자유롭게 이동 가능(위치 영구 저장). 설정에서 투명도(30~100%) 및 크기(소/중/대) 조정 가능. | (신규 — To-Be) |
+| F-20 | TPMS Raw 데이터 로깅 | 수신된 BLE 광고 패킷 | 외부 저장소 .txt 파일 | **TPMS 프로토콜 분석용 임시 기능**. 설정에서 'TPMS 로깅' 활성화 시, 수신되는 모든 BLE 광고 패킷(Full ScanRecord, RSSI, 기기명 등)을 타임스탬프와 함께 외부 저장소의 특정 .txt 파일에 직접 추가(Append) 저장한다. | (신규 — To-Be) |
+| F-20a | 로깅 데이터 포맷 | (없음) | 텍스트 로그 행 | `[timestamp] DeviceName | MAC | RSSI | RawBytes(Hex)` 형식으로 저장하여 향후 PC 등에서 분석 가능하도록 한다. | (신규 — To-Be) |
 
 ### 2.2 대시보드 갱신 사양
 - 텔레메트리 스트림은 100ms 주기로 샘플링하여 UI에 반영. 근거: `DashBoardViewModel.kt:66`
@@ -79,8 +86,11 @@
 ### 3.1 클라이언트 상태 범위 (Client State Scope)
 - **화면(휘발)**: `DashBoardState`(표시 문자열, 경고색, 기록 여부 등). 근거: `DashBoardState.kt`
 - **프로세스 메모리(앱 종료 시 소멸)**: 기울기 영점 `offsetDegrees`, 기록 세션 누적값(maxLean, 거리, 시작시각). 근거: `LeanCalibrationRepositoryImpl.kt:22`, `TelemetryRepositoryImpl.kt:44-46`
-- **영구(DataStore)**: showTpmsData, speedUnit, pressureUnit, frontTpmsId, rearTpmsId, launchCount. 근거: `UserPreferencesRepository.kt:18-25,31-38`
+- **영구(DataStore)**: showTpmsData, speedUnit, pressureUnit, frontTpmsId, rearTpmsId, launchCount, autoStopThreshold, overlayMode, overlayOpacity, overlaySize, overlayX, overlayY, tpmsLoggingEnabled. 근거: `UserPreferencesRepository.kt:18-25,31-38`
   - 목표 추가: 사용자 설정 적정공기압(앞/뒤 baseline) 영속 키 — 신규 필요. **PSI 기준으로 저장**(입력 단위 무관). 🔲 TBD: 키 네이밍/마이그레이션.
+  - 목표 추가: `autoStopThreshold`(분 단위 정수, 기본 5, 0=OFF).
+  - 목표 추가: `overlayMode`(0:Speed+Brake, 1:Lean, 2:All), `overlayOpacity`(Float, 0.3~1.0), `overlaySize`(String: SMALL/MEDIUM/LARGE), `overlayX/Y`(Float, 저장된 좌표).
+  - 목표 추가: `tpmsLoggingEnabled`(Boolean, 기본 false).
 - **영구(Room)**: rides, telemetry_logs 2테이블. 근거: `SpeedoDatabase.kt`
 
 ### 3.2 필수 데이터 구조 (Data Structures)
@@ -110,10 +120,11 @@ F-13c(시간주기 행의 지도 위치 결정)의 대안으로 아래를 검토
   - 재추진 전제: 채택 시 **자이로(`TYPE_GYROSCOPE`/rotation-vector)를 통해 yaw를 직접 측정**하거나 융합할 것. → R&D/희박 GPS 시나리오 전용으로 보류.
 
 ### 3.3 외부 의존성 / 권한
-- 권한(매니페스트 선언): ACCESS_FINE/COARSE_LOCATION, BODY_SENSORS, FOREGROUND_SERVICE(+_LOCATION), POST_NOTIFICATIONS, INTERNET, BLUETOOTH/_ADMIN/_SCAN(neverForLocation)/_CONNECT, BILLING. 근거: `AndroidManifest.xml:5-18`
+- 권한(매니페스트 선언): ACCESS_FINE/COARSE_LOCATION, BODY_SENSORS, FOREGROUND_SERVICE(+_LOCATION), POST_NOTIFICATIONS, INTERNET, BLUETOOTH/_ADMIN/_SCAN(neverForLocation)/_CONNECT, BILLING, SYSTEM_ALERT_WINDOW. 근거: `AndroidManifest.xml:5-18`
   - 런타임 권한 요청 플로우(확정):
     - 위치(FINE/COARSE) + 알림(Android 13+): Splash 진입 시 요청. **거부 시 안내 후 앱 종료**(핵심 권한 게이트, §2.1·§4.6).
     - BLE(BLUETOOTH_SCAN/BLUETOOTH_CONNECT): **설정 화면에서 TPMS 센서 연결을 시도하는 시점**에 요청(F-16). TPMS 미사용자에게는 요청하지 않음.
+    - 다른 앱 위에 표시(`SYSTEM_ALERT_WINDOW`): **설정에서 오버레이 위젯 기능을 활성화하는 시점**에 요청. 시스템 설정 화면으로 이동하여 직접 허용 유도. 거부 시 기능을 끈다.
 - 센서: FusedLocation(GPS), Rotation Vector(자이로 융합), Gravity 센서, Accelerometer 센서. 근거: `data/sensor/datasource/*`
 - 통신: BLE 스캔(SCAN_MODE_LOW_LATENCY)으로 TPMS 패킷 수신. 근거: `TpmsDataSource.kt:79-82`
 - 서드파티: Google AdMob(App ID 매니페스트 선언), Google Play Billing, Google Maps(`MAPS_API_KEY`). 근거: `AndroidManifest.xml:32-43`
@@ -146,7 +157,8 @@ F-13c(시간주기 행의 지도 위치 결정)의 대안으로 아래를 검토
 - 센서 ID 미설정: 스캔 시작하지 않음. 근거: `TpmsDataSource.kt:52`
 - payload 파싱 예외: catch 후 로그만 남기고 무시. 근거: `TpmsDataSource.kt:128-130`
 - 압력 데이터 없음(current≤0): 경고색 중립 표시. 근거: `DashBoardViewModel.kt:53`
-- 🔲 미검증/TBD: 압력값 파싱은 인터넷 공개 자료 기반 추정 바이트 오프셋으로 구현되어 있으나(F-07), 실 보유 센서로 동작/정확도를 확인한 적 없음. To-Be에서 실 센서 프로토콜(바이트 오프셋·단위·변환식)을 실측으로 확정·검증 필요. 센서 연결 끊김/타임아웃(stale 데이터) 처리 규칙도 미정의.
+- **⚠️ 기능 미작동 상태**: 현재 구현된 TPMS 파싱 로직은 실측 데이터와 맞지 않아 실제 센서 연결 시에도 데이터가 표시되지 않음. 향후 실제 센서의 패킷을 덤프하여 프로토콜(바이트 오프셋, 단위, 변환식)을 재설계하고 검증해야 함.
+- **TPMS 데이터 로깅 (분석용)**: 분석을 위해 `tpmsLoggingEnabled=true` 시 수신되는 모든 BLE 광고 패킷을 텍스트 파일로 저장한다. 개인정보 보호를 위해 사용자가 직접 기능을 켜야 하며, 파일은 외부 저장소(`Documents/Speedo/tpms_logs.txt` 등)에 저장한다. 로깅 중에는 성능 저하가 발생할 수 있음을 인지시킨다.
 
 ### 4.3 공백/빈 데이터
 - 주행 목록 0건: 현재 전용 빈 상태(Empty State) UI 없음. 헤더 + 총거리 카드(0.0) + 빈 리스트만 렌더링. 🔲 TBD(목표): 빈 상태 안내 문구/일러스트 정의 여부. 근거: `RecordsScreen.kt:115-128`
@@ -170,6 +182,17 @@ F-13c(시간주기 행의 지도 위치 결정)의 대안으로 아래를 검토
   - 위치/알림 거부 → "이 권한이 있어야 앱을 사용할 수 있다"는 안내 표시 후 앱 종료. 메인 진입 차단.
   - BLE 권한 거부 → 설정의 TPMS 연결 시점에서만 발생. 거부 시 TPMS 연결/스캔을 시작하지 않고 사용자에게 권한 필요 안내(앱 종료는 하지 않음). 그 외 기능(속도/거리/기록/지도)은 정상 동작.
 
+### 4.7 주행 종료 감지 예외
+- **장기 정차 시 기록 유지**: 사용자가 알림/팝업에서 [계속]을 선택하거나 응답하지 않을 경우, 데이터 유실 방지를 위해 주행 기록은 자동으로 종료하지 않고 계속 유지한다.
+- **감지 타이머 리셋**: 속도가 0.7km/h(F-01 기준 0)를 초과하는 즉시 감지 타이머를 초기화한다. [계속] 선택 시에도 타이머를 초기화하며, 이후 다시 T분간 정차 시 재발행한다.
+- **포그라운드/백그라운드 병행**: 앱이 화면에 떠 있을 때는 다이얼로그 팝업을 우선하며, 백그라운드 상태이거나 화면이 꺼진 경우에는 알림을 통해 주행 종료 여부를 확인한다.
+
+### 4.8 플로팅 오버레이 예외
+- **권한 미허용**: `SYSTEM_ALERT_WINDOW` 권한이 없을 경우, 오버레이 기능을 활성화하려 할 때마다 설정 화면 이동 안내 팝업을 표시한다.
+- **메모리 부족(LMK)**: 시스템에 의해 오버레이 서비스가 강제 종료될 경우, 기록 중인 포그라운드 서비스가 살아있다면 재시작 시 오버레이를 복구한다.
+- **화면 캡처/녹화**: 오버레이는 `Secure Flag`를 사용하지 않으므로 화면 캡처 시 포함될 수 있음을 사용자에게 인지시키지 않으나, UI가 너무 크지 않게 설계한다.
+- **멀티 윈도우 모드**: 분할 화면 모드에서는 오버레이를 표시하지 않거나, 사용자가 수동으로 닫을 수 있는 'X' 버튼을 항상 상단에 작게 배치한다.
+
 ---
 
 ## 5. 미해결 항목 요약 (Open Items — 임의 판단 보류)
@@ -177,7 +200,7 @@ F-13c(시간주기 행의 지도 위치 결정)의 대안으로 아래를 검토
 1. ~~프리미엄 잠금 범위~~ — ✅ **확정**: 광고 제거 전용, 기능 게이팅 없음 (§1.3)
 2. ~~Splash 노출 시간~~ — ✅ **해결**: 권한 결정 후 2,000ms (§2.1)
 3. ~~적정공기압 사용자 설정~~ — ✅ **확정**: 단위=설정 따름, 저장=PSI, 기본 36/40, **입력 범위 10~60 PSI** (F-08a, §4.4)
-4. TPMS 실 센서 프로토콜(바이트 매핑)·연결 끊김 처리 — *파싱은 인터넷 공개 자료 기반 추정 오프셋으로 구현됐으나(초안 시점 더미 → 이후 교체) 실 센서로 동작 미확인. "미검증" 명시 확정* (F-07, §4.2)
+4. **TPMS 실 센서 프로토콜 정상화** — 🔧 **향후 과제**: 현재 전혀 동작하지 않으며, 실 센서 프로토콜(바이트 매핑) 실측 및 연결 끊김 처리 로직 전체 재작성 필요 (F-07, §4.2)
 5. ~~Records/Log 화면 사양~~ — ✅ **해결**: 정렬·필드·지도/색상·구간 텔레메트리 명세 완료 (F-12, F-13, F-13a). Records "TOP SPD" 하드코딩 불일치도 ✅ 수정 완료(F-12a, 실제 `maxSpeed` 표시. DB는 버전 3, 개발 단계 파괴적 마이그레이션)
 6. ~~제목/삭제 유효성·cascade~~ — ✅ **해결**: trim+non-blank, 수동 cascade 명세 완료 (F-14, F-15, §3.2)
 7. ~~런타임 권한~~ — ✅ **확정**: 위치/알림 거부 시 안내 후 종료(핵심 게이트), BLE는 설정 TPMS 연결 시점 요청 (§3.3, §4.6). ⚠️ 알림 시작-차단은 재검토 권고
