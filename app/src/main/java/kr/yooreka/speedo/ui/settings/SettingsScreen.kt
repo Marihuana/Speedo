@@ -76,6 +76,10 @@ import kr.yooreka.speedo.ui.theme.SpeedoTheme
 fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    // 콜백(비 Composable 람다)에서 사용하기 위해 문자열 리소스를 미리 읽어 둔다.
+    val blePermissionRequiredMessage = stringResource(R.string.ble_permission_required)
+    val tpmsIdsResetMessage = stringResource(R.string.tpms_ids_reset)
+    val calibrationResetMessage = stringResource(R.string.calibration_reset)
 
     // TPMS(BLE) 권한 요청 런처. 허용되면 보류 중이던 동작(연결 다이얼로그 표시)을 실행한다.
     var pendingTpmsAction by remember { mutableStateOf<(() -> Unit)?>(null) }
@@ -86,7 +90,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
             if (grants.values.all { it }) {
                 pendingTpmsAction?.invoke()
             } else {
-                Toast.makeText(context, context.getString(R.string.ble_permission_required), Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, blePermissionRequiredMessage, Toast.LENGTH_SHORT).show()
             }
             pendingTpmsAction = null
         }
@@ -101,7 +105,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
         onPressureUnitChange = { viewModel.updatePressureUnit(it) },
         onResetTpmsIds = {
             viewModel.resetTpmsIds()
-            Toast.makeText(context, context.getString(R.string.tpms_ids_reset), Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, tpmsIdsResetMessage, Toast.LENGTH_SHORT).show()
         },
         hasSavedTpmsIds = state.hasSavedTpmsIds,
         onEnableTpms = { viewModel.toggleTpms(true) },
@@ -109,7 +113,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
         onCalibrateClick = { viewModel.calibrate() },
         onResetCalibration = {
             viewModel.resetCalibration()
-            Toast.makeText(context, context.getString(R.string.calibration_reset), Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, calibrationResetMessage, Toast.LENGTH_SHORT).show()
         },
         onRequestEnableTpms = { onGranted ->
             if (hasBlePermissions(context)) {

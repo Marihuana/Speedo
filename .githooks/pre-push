@@ -1,0 +1,21 @@
+#!/bin/sh
+#
+# 푸시 직전 Android Lint(정적 분석)를 실행한다.
+# CI(.github/workflows/android-ci.yml)의 'lintDebug'와 동일한 검사를 로컬에서 먼저 수행해,
+# 린트 에러가 CI까지 도달하기 전에 차단한다.
+
+echo "▶ pre-push: Android Lint(lintDebug) 실행 중... (수 분 소요될 수 있음)"
+
+./gradlew lintDebug --daemon
+status=$?
+
+if [ $status -ne 0 ]; then
+  echo ""
+  echo "✖ Lint 에러 발견. 'git push'가 중단되었습니다."
+  echo "  → 리포트: app/build/reports/lint-results-debug.html"
+  echo "  → 에러 수정 후 다시 푸시하세요. (검사를 건너뛰려면 'git push --no-verify')"
+  exit $status
+fi
+
+echo "✔ Lint 통과"
+exit 0

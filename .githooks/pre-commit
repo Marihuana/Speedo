@@ -1,0 +1,20 @@
+#!/bin/sh
+#
+# 커밋 직전 코드 포매팅(ktlint)을 검사한다.
+# 가벼운 검사만 수행해 커밋 피드백을 빠르게 유지한다.
+# 무거운 Android Lint(lintDebug)는 pre-push 훅에서 수행한다.
+
+echo "▶ pre-commit: ktlint 포매팅 검사 중..."
+
+./gradlew ktlintCheck --daemon
+status=$?
+
+if [ $status -ne 0 ]; then
+  echo ""
+  echo "✖ ktlint 검사 실패. 'git commit'이 중단되었습니다."
+  echo "  → './gradlew ktlintFormat' 으로 자동 수정 후 다시 커밋하세요."
+  exit $status
+fi
+
+echo "✔ ktlint 통과"
+exit 0
