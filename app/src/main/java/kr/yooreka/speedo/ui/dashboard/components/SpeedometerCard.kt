@@ -1,5 +1,8 @@
 package kr.yooreka.speedo.ui.dashboard.components
 
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -15,6 +18,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -63,6 +67,18 @@ fun SpeedometerCard(
     val leanFloat = leanAngle.removeSuffix("°").toFloatOrNull() ?: 0f
 
     val clampedLean = leanFloat.coerceIn(-MAX_LEAN_ANGLE, MAX_LEAN_ANGLE)
+
+    // F-03a: 100ms 갱신의 step 끊김을 UI 레이어에서만 보간(roll 원본·기록값 무영향).
+    // spring(NoBouncy, Medium ≈400f) → 오버슈트 없이 약 150~250ms 내 수렴(허용 지연 상한 250ms).
+    val animatedLean by animateFloatAsState(
+        targetValue = clampedLean,
+        animationSpec =
+            spring(
+                dampingRatio = Spring.DampingRatioNoBouncy,
+                stiffness = Spring.StiffnessMedium,
+            ),
+        label = "leanAngle",
+    )
     Box(
         modifier =
             modifier
@@ -82,7 +98,7 @@ fun SpeedometerCard(
             LeanGauge(
                 minValue = MIN_LEAN_ANGLE,
                 maxValue = MAX_LEAN_ANGLE,
-                value = clampedLean,
+                value = animatedLean,
                 side = GaugeSide.LEFT,
                 modifier =
                     Modifier
@@ -92,7 +108,7 @@ fun SpeedometerCard(
             LeanGauge(
                 minValue = MIN_LEAN_ANGLE,
                 maxValue = MAX_LEAN_ANGLE,
-                value = -clampedLean,
+                value = -animatedLean,
                 side = GaugeSide.RIGHT,
                 modifier =
                     Modifier
@@ -143,12 +159,12 @@ fun SpeedometerCard(
             Spacer(modifier = Modifier.height(2.dp))
             val direction =
                 when {
-                    clampedLean < 0f -> "R"
-                    clampedLean > 0f -> "L"
+                    animatedLean < 0f -> "R"
+                    animatedLean > 0f -> "L"
                     else -> ""
                 }
             Text(
-                text = if (direction.isEmpty()) "0°" else "$direction ${abs(clampedLean).toInt()}°",
+                text = if (direction.isEmpty()) "0°" else "$direction ${abs(animatedLean).toInt()}°",
                 color = Color.White,
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Black,
