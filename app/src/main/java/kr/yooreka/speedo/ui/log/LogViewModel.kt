@@ -11,6 +11,7 @@ import kotlinx.coroutines.launch
 import kr.yooreka.speedo.domain.model.RideTelemetry
 import kr.yooreka.speedo.domain.usecase.GetRideDetailUseCase
 import kr.yooreka.speedo.domain.usecase.GetRideTelemetryUseCase
+import kr.yooreka.speedo.domain.usecase.InterpolateRoutePathUseCase
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -35,6 +36,7 @@ class LogViewModel
         savedStateHandle: SavedStateHandle,
         private val getRideDetailUseCase: GetRideDetailUseCase,
         private val getRideTelemetryUseCase: GetRideTelemetryUseCase,
+        private val interpolateRoutePathUseCase: InterpolateRoutePathUseCase,
     ) : ViewModel() {
         private val _uiState = MutableStateFlow(LogState())
         val uiState: StateFlow<LogState> = _uiState.asStateFlow()
@@ -53,6 +55,8 @@ class LogViewModel
         private fun fetchRideDetails(rideId: Long) {
             viewModelScope.launch {
                 val telemetryData = getRideTelemetryUseCase(rideId).getOrDefault(emptyList())
+                // 시간주기(F-13b) 행의 빈 좌표를 보간해 경로 점으로 채운다(F-13c). 최고속도는 원본 기준 유지.
+                val routePoints = interpolateRoutePathUseCase(telemetryData)
 
                 getRideDetailUseCase(rideId).fold(
                     onSuccess = { ride ->
@@ -66,7 +70,7 @@ class LogViewModel
                                 distance = String.format("%.1f", ride.totalDistance),
                                 maxLean = String.format("%.0f", ride.maxLean),
                                 maxSpeed = String.format("%.0f", maxSpd),
-                                routePoints = telemetryData,
+                                routePoints = routePoints,
                                 selectedPoint = null,
                             )
                     },

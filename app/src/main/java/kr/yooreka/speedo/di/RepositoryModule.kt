@@ -21,6 +21,8 @@ import kr.yooreka.speedo.domain.repository.LeanCalibrationRepository
 import kr.yooreka.speedo.domain.repository.RideRepository
 import kr.yooreka.speedo.domain.repository.SensorRepository
 import kr.yooreka.speedo.domain.repository.TelemetryRepository
+import kr.yooreka.speedo.domain.usecase.LinearPathInterpolator
+import kr.yooreka.speedo.domain.usecase.PathInterpolator
 import javax.inject.Singleton
 
 @Module
@@ -57,4 +59,8 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindBillingRepository(impl: BillingRepositoryImpl): BillingRepository
+
+    // 경로 위치 보간 전략(F-13c). 기본 선형, 추후 Catmull-Rom 등으로 교체 가능(Strategy).
+    @Binds
+    abstract fun bindPathInterpolator(impl: LinearPathInterpolator): PathInterpolator
 }
