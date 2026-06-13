@@ -14,5 +14,5 @@ data class TelemetryEntity(
     val brakeEvent: BrakeEvent,
     val brakeForce: Float,
     val latitude: Double?,
-    val longitude: Double?
+    val longitude: Double?,
 )

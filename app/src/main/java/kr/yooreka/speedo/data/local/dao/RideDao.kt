@@ -5,8 +5,8 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
-import kr.yooreka.speedo.data.local.entity.RideEntity
 import kotlinx.coroutines.flow.Flow
+import kr.yooreka.speedo.data.local.entity.RideEntity
 
 @Dao
 interface RideDao {
@@ -17,7 +17,10 @@ interface RideDao {
     suspend fun updateRide(ride: RideEntity)
 
     @Query("UPDATE rides SET title = :title WHERE id = :rideId")
-    suspend fun updateTitle(rideId: Long, title: String)
+    suspend fun updateTitle(
+        rideId: Long,
+        title: String,
+    )
 
     @Query("SELECT * FROM rides ORDER BY startTime DESC")
     fun getAllRides(): Flow<List<RideEntity>>

@@ -22,5 +22,5 @@ data class DashBoardState(
     val isRecording: Boolean = false,
     val speedUnit: String = "KM/H",
     val pressureUnit: String = "PSI",
-    val showTpmsData: Boolean = false
+    val showTpmsData: Boolean = false,
 )

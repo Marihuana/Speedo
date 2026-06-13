@@ -7,9 +7,14 @@ import kotlinx.coroutines.flow.Flow
  */
 interface TelemetryRepository {
     val isRecording: Flow<Boolean>
+
     fun startTelemetry()
+
     fun stopTelemetry()
+
     fun startRecording()
+
     fun stopRecording()
+
     fun flushBuffer()
 }

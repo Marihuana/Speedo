@@ -1,16 +1,15 @@
 package kr.yooreka.speedo.fake
 
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kr.yooreka.speedo.domain.model.Ride
 import kr.yooreka.speedo.domain.model.RideTelemetry
 import kr.yooreka.speedo.domain.repository.RideRepository
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
 
 /**
  * [RideRepository] Fake. UseCase / ViewModel 테스트에서 도메인 경계를 결정적으로 대체한다.
  */
 class FakeRideRepository : RideRepository {
-
     private val ridesFlow = MutableStateFlow<List<Ride>>(emptyList())
 
     /** rideId → 텔레메트리. 미지정 시 빈 리스트. */
@@ -44,7 +43,10 @@ class FakeRideRepository : RideRepository {
         return Result.success(telemetryByRide[rideId] ?: emptyList())
     }
 
-    override suspend fun updateRideTitle(rideId: Long, title: String): Result<Unit> {
+    override suspend fun updateRideTitle(
+        rideId: Long,
+        title: String,
+    ): Result<Unit> {
         updateTitleCalls += rideId to title
         return updateTitleResult
     }

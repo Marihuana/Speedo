@@ -20,7 +20,7 @@ package kr.yooreka.speedo.data.sensor.repository
 class RideDistanceTracker(
     private val minDistanceMeters: Float = 0f,
     private val maxAccuracyMeters: Float = 0f,
-    private val distanceMeters: (lat1: Double, lng1: Double, lat2: Double, lng2: Double) -> Float
+    private val distanceMeters: (lat1: Double, lng1: Double, lat2: Double, lng2: Double) -> Float,
 ) {
     private var lastLat: Double? = null
     private var lastLng: Double? = null
@@ -43,7 +43,11 @@ class RideDistanceTracker(
      * 새 위치를 반영한다.
      * @param accuracyMeters 수평 정확도(미터). 0이면 알 수 없음으로 보고 통과시킨다.
      */
-    fun add(lat: Double, lng: Double, accuracyMeters: Float = 0f) {
+    fun add(
+        lat: Double,
+        lng: Double,
+        accuracyMeters: Float = 0f,
+    ) {
         // 1) 무효 좌표(GPS 미수신) 무시
         if (lat == 0.0 && lng == 0.0) return
 

@@ -1,8 +1,8 @@
 package kr.yooreka.speedo.domain.repository
 
+import kotlinx.coroutines.flow.Flow
 import kr.yooreka.speedo.domain.model.Ride
 import kr.yooreka.speedo.domain.model.RideTelemetry
-import kotlinx.coroutines.flow.Flow
 
 /**
  * 저장된 주행 기록(요약 + 텔레메트리 경로)을 조회/관리하는 레포지토리 인터페이스.
@@ -20,7 +20,10 @@ interface RideRepository {
     suspend fun getRideTelemetry(rideId: Long): Result<List<RideTelemetry>>
 
     /** 주행 제목을 수정한다. */
-    suspend fun updateRideTitle(rideId: Long, title: String): Result<Unit>
+    suspend fun updateRideTitle(
+        rideId: Long,
+        title: String,
+    ): Result<Unit>
 
     /** 주행 기록과 해당 텔레메트리 로그를 함께 삭제한다. */
     suspend fun deleteRide(rideId: Long): Result<Unit>

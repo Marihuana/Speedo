@@ -12,5 +12,5 @@ data class RideEntity(
     val totalDistance: Float = 0f,
     val maxLean: Float = 0f,
     val maxSpeed: Float = 0f,
-    val duration: Long = 0L
+    val duration: Long = 0L,
 )

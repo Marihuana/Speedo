@@ -2,7 +2,18 @@ package kr.yooreka.speedo.ui.dashboard.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
@@ -18,7 +29,13 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kr.yooreka.speedo.R
-import kr.yooreka.speedo.ui.theme.*
+import kr.yooreka.speedo.ui.theme.DangerRed
+import kr.yooreka.speedo.ui.theme.GreenSuccess
+import kr.yooreka.speedo.ui.theme.SlateDark
+import kr.yooreka.speedo.ui.theme.SlateSubText
+import kr.yooreka.speedo.ui.theme.SlateText
+import kr.yooreka.speedo.ui.theme.SpeedoTheme
+import kr.yooreka.speedo.ui.theme.WarningYellow
 
 @Composable
 fun TPMSCard(
@@ -31,14 +48,15 @@ fun TPMSCard(
     pressureUnit: String = "PSI",
     rearColor: Color = GreenSuccess,
     frontColor: Color = GreenSuccess,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(248.dp),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .height(248.dp),
         shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = SlateDark)
+        colors = CardDefaults.cardColors(containerColor = SlateDark),
     ) {
         Column(modifier = Modifier.fillMaxSize().padding(8.dp)) {
             Text(
@@ -47,12 +65,12 @@ fun TPMSCard(
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 1.1.sp,
-                modifier = Modifier.padding(bottom = 6.dp)
+                modifier = Modifier.padding(bottom = 6.dp),
             )
 
             Row(
                 modifier = Modifier.fillMaxWidth().weight(1f),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 TirePressureBox(
                     modifier = Modifier.weight(1f).fillMaxHeight(),
@@ -61,7 +79,7 @@ fun TPMSCard(
                     unit = pressureUnit,
                     temp = frontTemp,
                     bat = frontBat,
-                    color = frontColor
+                    color = frontColor,
                 )
 
                 TirePressureBox(
@@ -71,15 +89,15 @@ fun TPMSCard(
                     unit = pressureUnit,
                     temp = rearTemp,
                     bat = rearBat,
-                    color = rearColor
+                    color = rearColor,
                 )
             }
-            
+
             // Legend
             Row(
                 modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
                 horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 LegendItem(color = GreenSuccess, text = "적정")
                 Spacer(modifier = Modifier.width(12.dp))
@@ -99,13 +117,14 @@ fun TirePressureBox(
     unit: String,
     temp: String,
     bat: String,
-    color: Color
+    color: Color,
 ) {
     Box(
-        modifier = modifier
-            .background(Color.Black.copy(alpha = 0.3f), RoundedCornerShape(14.dp))
-            .border(1.875.dp, color, RoundedCornerShape(14.dp))
-            .padding(14.dp)
+        modifier =
+            modifier
+                .background(Color.Black.copy(alpha = 0.3f), RoundedCornerShape(14.dp))
+                .border(1.875.dp, color, RoundedCornerShape(14.dp))
+                .padding(14.dp),
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             Text(
@@ -114,13 +133,13 @@ fun TirePressureBox(
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 0.36.sp,
-                modifier = Modifier.align(Alignment.CenterHorizontally)
+                modifier = Modifier.align(Alignment.CenterHorizontally),
             )
-            
+
             Column(
                 modifier = Modifier.fillMaxWidth().weight(1f),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.SpaceBetween
+                verticalArrangement = Arrangement.SpaceBetween,
             ) {
                 Box(
                     modifier = Modifier.fillMaxWidth().weight(1f),
@@ -128,30 +147,35 @@ fun TirePressureBox(
                 ) {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.padding(bottom = 6.dp)
+                        modifier = Modifier.padding(bottom = 6.dp),
                     ) {
                         Text(
                             text = pressure,
                             color = color,
                             fontSize = 24.sp,
                             fontWeight = FontWeight.Black,
-                            letterSpacing = 0.07.sp
+                            letterSpacing = 0.07.sp,
                         )
                         Text(
                             text = unit,
                             color = SlateSubText,
                             fontSize = 9.sp,
                             fontWeight = FontWeight.Bold,
-                            letterSpacing = 0.39.sp
+                            letterSpacing = 0.39.sp,
                         )
                     }
-                    Box(modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(0.6.dp).background(SlateDark.copy(alpha=0.5f)))
+                    Box(
+                        modifier =
+                            Modifier.align(
+                                Alignment.BottomCenter,
+                            ).fillMaxWidth().height(0.6.dp).background(SlateDark.copy(alpha = 0.5f)),
+                    )
                 }
-                
+
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
                     horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
@@ -159,31 +183,31 @@ fun TirePressureBox(
                             color = SlateText,
                             fontSize = 9.sp,
                             fontWeight = FontWeight.Bold,
-                            letterSpacing = 0.16.sp
+                            letterSpacing = 0.16.sp,
                         )
                         Text(
                             text = temp,
                             color = color,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Black,
-                            letterSpacing = (-0.15).sp
+                            letterSpacing = (-0.15).sp,
                         )
                     }
-                    Box(modifier = Modifier.width(1.dp).height(30.dp).background(SlateDark.copy(alpha=0.5f)))
+                    Box(modifier = Modifier.width(1.dp).height(30.dp).background(SlateDark.copy(alpha = 0.5f)))
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
                             text = "BAT",
                             color = SlateText,
                             fontSize = 9.sp,
                             fontWeight = FontWeight.Bold,
-                            letterSpacing = 0.16.sp
+                            letterSpacing = 0.16.sp,
                         )
                         Text(
                             text = bat,
                             color = color,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Black,
-                            letterSpacing = (-0.15).sp
+                            letterSpacing = (-0.15).sp,
                         )
                     }
                 }
@@ -193,7 +217,10 @@ fun TirePressureBox(
 }
 
 @Composable
-fun LegendItem(color: Color, text: String) {
+fun LegendItem(
+    color: Color,
+    text: String,
+) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Box(modifier = Modifier.size(6.dp).background(color, CircleShape))
         Spacer(modifier = Modifier.width(4.dp))
@@ -202,7 +229,7 @@ fun LegendItem(color: Color, text: String) {
             color = SlateSubText,
             fontSize = 8.sp,
             fontWeight = FontWeight.Bold,
-            letterSpacing = 0.4.sp
+            letterSpacing = 0.4.sp,
         )
     }
 }
@@ -220,7 +247,7 @@ fun TPMSCardPreview() {
             frontBat = "2.8V",
             pressureUnit = "PSI",
             rearColor = GreenSuccess,
-            frontColor = GreenSuccess
+            frontColor = GreenSuccess,
         )
     }
 }
@@ -236,7 +263,7 @@ fun TirePressureBoxPreview() {
             temp = "43°",
             bat = "2.8V",
             color = GreenSuccess,
-            modifier = Modifier.height(150.dp)
+            modifier = Modifier.height(150.dp),
         )
     }
 }

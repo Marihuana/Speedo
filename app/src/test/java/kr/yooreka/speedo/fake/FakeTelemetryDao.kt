@@ -1,9 +1,9 @@
 package kr.yooreka.speedo.fake
 
-import kr.yooreka.speedo.data.local.dao.TelemetryDao
-import kr.yooreka.speedo.data.local.entity.TelemetryEntity
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kr.yooreka.speedo.data.local.dao.TelemetryDao
+import kr.yooreka.speedo.data.local.entity.TelemetryEntity
 
 /**
  * 인메모리 [TelemetryDao] Fake.
@@ -13,7 +13,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 class FakeTelemetryDao(
     private val ops: MutableList<String> = mutableListOf(),
 ) : TelemetryDao {
-
     private val logs = MutableStateFlow<List<TelemetryEntity>>(emptyList())
 
     var throwOnRead: Throwable? = null

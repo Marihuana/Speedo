@@ -1,6 +1,8 @@
 package kr.yooreka.speedo.ui.log
 
 import androidx.lifecycle.SavedStateHandle
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.runTest
 import kr.yooreka.speedo.domain.model.BrakeEvent
 import kr.yooreka.speedo.domain.model.Ride
 import kr.yooreka.speedo.domain.model.RideTelemetry
@@ -8,8 +10,6 @@ import kr.yooreka.speedo.domain.usecase.GetRideDetailUseCase
 import kr.yooreka.speedo.domain.usecase.GetRideTelemetryUseCase
 import kr.yooreka.speedo.fake.FakeRideRepository
 import kr.yooreka.speedo.testutil.MainDispatcherRule
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -23,28 +23,46 @@ import java.util.Locale
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class LogViewModelTest {
-
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
 
     private val repository = FakeRideRepository()
 
-    private fun viewModel(rideId: Long?) = LogViewModel(
-        savedStateHandle = SavedStateHandle(
-            if (rideId == null) emptyMap() else mapOf("rideId" to rideId),
-        ),
-        getRideDetailUseCase = GetRideDetailUseCase(repository),
-        getRideTelemetryUseCase = GetRideTelemetryUseCase(repository),
-    )
+    private fun viewModel(rideId: Long?) =
+        LogViewModel(
+            savedStateHandle =
+                SavedStateHandle(
+                    if (rideId == null) emptyMap() else mapOf("rideId" to rideId),
+                ),
+            getRideDetailUseCase = GetRideDetailUseCase(repository),
+            getRideTelemetryUseCase = GetRideTelemetryUseCase(repository),
+        )
 
-    private fun point(ts: Long, speed: Float) = RideTelemetry(
-        rideId = 1, timestamp = ts, speed = speed, roll = 0f,
-        brakeEvent = BrakeEvent.NONE, brakeForce = 0f, latitude = 1.0, longitude = 2.0,
+    private fun point(
+        ts: Long,
+        speed: Float,
+    ) = RideTelemetry(
+        rideId = 1,
+        timestamp = ts,
+        speed = speed,
+        roll = 0f,
+        brakeEvent = BrakeEvent.NONE,
+        brakeForce = 0f,
+        latitude = 1.0,
+        longitude = 2.0,
     )
 
     @Test
     fun `valid ride id populates state with formatted fields and route`() {
-        val ride = Ride(id = 1, title = "Sunset Run", startTime = 1_700_000_000_000L, totalDistance = 12.34f, maxLean = 37.6f, duration = 3_661_000L)
+        val ride =
+            Ride(
+                id = 1,
+                title = "Sunset Run",
+                startTime = 1_700_000_000_000L,
+                totalDistance = 12.34f,
+                maxLean = 37.6f,
+                duration = 3_661_000L,
+            )
         repository.setRides(listOf(ride))
         repository.telemetryByRide = mapOf(1L to listOf(point(1, 20f), point(2, 88f), point(3, 55f)))
 
@@ -104,15 +122,16 @@ class LogViewModelTest {
     }
 
     @Test
-    fun `selectPoint updates and clears the selected point`() = runTest {
-        repository.setRides(listOf(Ride(id = 1, title = "R", startTime = 0L)))
-        val vm = viewModel(1)
-        val p = point(1, 30f)
+    fun `selectPoint updates and clears the selected point`() =
+        runTest {
+            repository.setRides(listOf(Ride(id = 1, title = "R", startTime = 0L)))
+            val vm = viewModel(1)
+            val p = point(1, 30f)
 
-        vm.selectPoint(p)
-        assertEquals(p, vm.uiState.value.selectedPoint)
+            vm.selectPoint(p)
+            assertEquals(p, vm.uiState.value.selectedPoint)
 
-        vm.selectPoint(null)
-        assertNull(vm.uiState.value.selectedPoint)
-    }
+            vm.selectPoint(null)
+            assertNull(vm.uiState.value.selectedPoint)
+        }
 }

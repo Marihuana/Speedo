@@ -1,10 +1,10 @@
 package kr.yooreka.speedo.fake
 
-import kr.yooreka.speedo.data.local.dao.RideDao
-import kr.yooreka.speedo.data.local.entity.RideEntity
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
+import kr.yooreka.speedo.data.local.dao.RideDao
+import kr.yooreka.speedo.data.local.entity.RideEntity
 
 /**
  * 인메모리 [RideDao] Fake. 결정적 테스트를 위해 실제 Room 동작(정렬/upsert)을 모사한다.
@@ -14,7 +14,6 @@ import kotlinx.coroutines.flow.map
 class FakeRideDao(
     private val ops: MutableList<String> = mutableListOf(),
 ) : RideDao {
-
     private val rides = MutableStateFlow<List<RideEntity>>(emptyList())
     private var nextId = 1L
 
@@ -40,14 +39,16 @@ class FakeRideDao(
         rides.value = rides.value.map { if (it.id == ride.id) ride else it }
     }
 
-    override suspend fun updateTitle(rideId: Long, title: String) {
+    override suspend fun updateTitle(
+        rideId: Long,
+        title: String,
+    ) {
         throwOnWrite?.let { throw it }
         rides.value = rides.value.map { if (it.id == rideId) it.copy(title = title) else it }
     }
 
     // 실제 쿼리: ORDER BY startTime DESC
-    override fun getAllRides(): Flow<List<RideEntity>> =
-        rides.map { list -> list.sortedByDescending { it.startTime } }
+    override fun getAllRides(): Flow<List<RideEntity>> = rides.map { list -> list.sortedByDescending { it.startTime } }
 
     override suspend fun getRideById(rideId: Long): RideEntity? {
         throwOnRead?.let { throw it }

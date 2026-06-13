@@ -11,7 +11,12 @@ import kotlin.math.sqrt
  * 위도 1도 ≈ 111,320m, 경도 1도 ≈ 111,320m * cos(위도).
  * Location.distanceBetween 대신 결정적 값을 제공해 누적/게이트 로직만 검증한다.
  */
-private fun planarMeters(lat1: Double, lng1: Double, lat2: Double, lng2: Double): Float {
+private fun planarMeters(
+    lat1: Double,
+    lng1: Double,
+    lat2: Double,
+    lng2: Double,
+): Float {
     val mPerDeg = 111_320.0
     val dLat = (lat2 - lat1) * mPerDeg
     val dLng = (lng2 - lng1) * mPerDeg * cos(Math.toRadians((lat1 + lat2) / 2))
@@ -19,11 +24,12 @@ private fun planarMeters(lat1: Double, lng1: Double, lat2: Double, lng2: Double)
 }
 
 /** 게이트 없이(기본) 평면 거리 함수를 쓰는 트래커. */
-private fun tracker(minMeters: Float = 0f, maxAccuracy: Float = 0f) =
-    RideDistanceTracker(minMeters, maxAccuracy, ::planarMeters)
+private fun tracker(
+    minMeters: Float = 0f,
+    maxAccuracy: Float = 0f,
+) = RideDistanceTracker(minMeters, maxAccuracy, ::planarMeters)
 
 class RideDistanceTrackerTest {
-
     // ---------- 기본 누적 로직 (게이트 비활성) ----------
 
     @Test
@@ -54,7 +60,7 @@ class RideDistanceTrackerTest {
     fun `ignores invalid zero coordinates`() {
         val t = tracker()
         t.add(37.0000, 127.0000)
-        t.add(0.0, 0.0)          // GPS 미수신 — 무시
+        t.add(0.0, 0.0) // GPS 미수신 — 무시
         t.add(37.0010, 127.0000) // 기준점은 여전히 (37.0000, 127.0000)
         assertEquals(111.32f, t.totalMeters, 0.5f)
     }
@@ -108,9 +114,9 @@ class RideDistanceTrackerTest {
     @Test
     fun `accuracy gate rejects poor fixes`() {
         val t = tracker(maxAccuracy = 25f)
-        t.add(37.0000, 127.0000, accuracyMeters = 5f)   // 양호 → 기준점
-        t.add(37.0010, 127.0000, accuracyMeters = 50f)  // 부정확(>25) → 무시, 기준점 유지
-        t.add(37.0020, 127.0000, accuracyMeters = 8f)   // 양호 → 기준점(37.0000) 대비 ≈222.6m
+        t.add(37.0000, 127.0000, accuracyMeters = 5f) // 양호 → 기준점
+        t.add(37.0010, 127.0000, accuracyMeters = 50f) // 부정확(>25) → 무시, 기준점 유지
+        t.add(37.0020, 127.0000, accuracyMeters = 8f) // 양호 → 기준점(37.0000) 대비 ≈222.6m
         assertEquals(222.64f, t.totalMeters, 0.5f)
     }
 

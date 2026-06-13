@@ -7,7 +7,7 @@ data class AccelerometerData(
     val x: Float = 0f,
     val y: Float = 0f,
     val z: Float = 0f,
-    val timestamp: Long = 0L
+    val timestamp: Long = 0L,
 )
 
 /**
@@ -16,7 +16,7 @@ data class AccelerometerData(
 data class GravityData(
     val x: Float = 0f,
     val y: Float = 0f,
-    val z: Float = 0f
+    val z: Float = 0f,
 ) {
     /** 센서가 유효한 값을 전달하고 있는지 여부. stop() 시 (0,0,0)으로 초기화된다. */
     fun hasData(): Boolean = x != 0f || y != 0f || z != 0f
@@ -45,7 +45,7 @@ data class LocationData(
     val longitude: Double = 0.0,
     val speed: Float = 0f,
     /** 수평 위치 정확도(미터). 0이면 알 수 없음. 값이 클수록 부정확. */
-    val accuracy: Float = 0f
+    val accuracy: Float = 0f,
 )
 
 /**
@@ -58,5 +58,5 @@ data class TpmsData(
     val rearTemperature: Float = 0f,
     val frontBatteryVoltage: Float = 0f,
     val rearBatteryVoltage: Float = 0f,
-    val timestamp: Long = 0L
+    val timestamp: Long = 0L,
 )

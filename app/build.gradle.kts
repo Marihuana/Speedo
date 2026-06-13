@@ -10,12 +10,13 @@ plugins {
 }
 
 // local.properties(VCS 미커밋)에서 Maps API 키를 읽어옵니다. 없으면 빈 문자열로 폴백합니다.
-val mapsApiKey: String = Properties().apply {
-    val localProps = rootProject.file("local.properties")
-    if (localProps.exists()) {
-        FileInputStream(localProps).use { load(it) }
-    }
-}.getProperty("MAPS_API_KEY", "")
+val mapsApiKey: String =
+    Properties().apply {
+        val localProps = rootProject.file("local.properties")
+        if (localProps.exists()) {
+            FileInputStream(localProps).use { load(it) }
+        }
+    }.getProperty("MAPS_API_KEY", "")
 
 android {
     namespace = "kr.yooreka.speedo"
@@ -39,7 +40,7 @@ android {
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
+                "proguard-rules.pro",
             )
         }
     }
@@ -68,7 +69,7 @@ dependencies {
     implementation(libs.play.services.location)
     implementation(libs.androidx.navigation.compose)
 
-    //map
+    // map
     implementation(libs.maps.compose)
     implementation(libs.play.services.maps)
     implementation(libs.material.icons.extended)

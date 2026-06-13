@@ -9,7 +9,6 @@ import kotlinx.coroutines.flow.StateFlow
  * (영구 저장 없음 — 다음 실행 시 0 으로 초기화)
  */
 interface LeanCalibrationRepository {
-
     /** 현재 영점 보정값(도 단위). 기본값 0f. */
     val offsetDegrees: StateFlow<Float>
 

@@ -21,87 +21,92 @@ data class SettingsState(
     val pressureUnit: String = "PSI",
     val isCalibrating: Boolean = false,
     val hasSavedTpmsIds: Boolean = false,
-    val isAdRemoved: Boolean = false
+    val isAdRemoved: Boolean = false,
 )
 
 @HiltViewModel
-class SettingsViewModel @Inject constructor(
-    private val userPreferencesRepository: UserPreferencesRepository,
-    private val calibrationRepository: LeanCalibrationRepository,
-    private val billingRepository: BillingRepository
-) : ViewModel() {
+class SettingsViewModel
+    @Inject
+    constructor(
+        private val userPreferencesRepository: UserPreferencesRepository,
+        private val calibrationRepository: LeanCalibrationRepository,
+        private val billingRepository: BillingRepository,
+    ) : ViewModel() {
+        private val isCalibratingFlow = MutableStateFlow(false)
 
-    private val _isCalibrating = MutableStateFlow(false)
+        val uiState: StateFlow<SettingsState> =
+            combine(
+                userPreferencesRepository.userPreferencesFlow,
+                isCalibratingFlow,
+                billingRepository.isAdRemoved,
+            ) { prefs, calibrating, isAdRemoved ->
+                SettingsState(
+                    showTpmsData = prefs.showTpmsData,
+                    speedUnit = prefs.speedUnit,
+                    pressureUnit = prefs.pressureUnit,
+                    isCalibrating = calibrating,
+                    hasSavedTpmsIds = prefs.frontTpmsId.isNotBlank() && prefs.rearTpmsId.isNotBlank(),
+                    isAdRemoved = isAdRemoved,
+                )
+            }.stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5000),
+                initialValue = SettingsState(),
+            )
 
-    val uiState: StateFlow<SettingsState> = combine(
-        userPreferencesRepository.userPreferencesFlow,
-        _isCalibrating,
-        billingRepository.isAdRemoved
-    ) { prefs, calibrating, isAdRemoved ->
-        SettingsState(
-            showTpmsData = prefs.showTpmsData,
-            speedUnit = prefs.speedUnit,
-            pressureUnit = prefs.pressureUnit,
-            isCalibrating = calibrating,
-            hasSavedTpmsIds = prefs.frontTpmsId.isNotBlank() && prefs.rearTpmsId.isNotBlank(),
-            isAdRemoved = isAdRemoved
-        )
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = SettingsState()
-    )
-
-    fun purchaseRemoveAds(activity: Activity) {
-        billingRepository.launchBillingFlow(activity)
-    }
-
-    fun toggleTpms(enabled: Boolean) {
-        viewModelScope.launch {
-            userPreferencesRepository.updateShowTpmsData(enabled)
+        fun purchaseRemoveAds(activity: Activity) {
+            billingRepository.launchBillingFlow(activity)
         }
-    }
 
-    fun updateSpeedUnit(unit: String) {
-        viewModelScope.launch {
-            userPreferencesRepository.updateSpeedUnit(unit)
+        fun toggleTpms(enabled: Boolean) {
+            viewModelScope.launch {
+                userPreferencesRepository.updateShowTpmsData(enabled)
+            }
         }
-    }
 
-    fun updatePressureUnit(unit: String) {
-        viewModelScope.launch {
-            userPreferencesRepository.updatePressureUnit(unit)
+        fun updateSpeedUnit(unit: String) {
+            viewModelScope.launch {
+                userPreferencesRepository.updateSpeedUnit(unit)
+            }
         }
-    }
 
-    fun saveTpmsIds(frontId: String, rearId: String) {
-        viewModelScope.launch {
-            userPreferencesRepository.updateTpmsIds(frontId, rearId)
+        fun updatePressureUnit(unit: String) {
+            viewModelScope.launch {
+                userPreferencesRepository.updatePressureUnit(unit)
+            }
         }
-    }
 
-    /** 저장된 TPMS 센서 ID(앞/뒤)를 초기화한다. */
-    fun resetTpmsIds() {
-        viewModelScope.launch {
-            userPreferencesRepository.resetTpmsIds()
+        fun saveTpmsIds(
+            frontId: String,
+            rearId: String,
+        ) {
+            viewModelScope.launch {
+                userPreferencesRepository.updateTpmsIds(frontId, rearId)
+            }
         }
-    }
 
-    /** 영점 보정값을 초기화한다(offset = 0). */
-    fun resetCalibration() {
-        calibrationRepository.reset()
-    }
+        /** 저장된 TPMS 센서 ID(앞/뒤)를 초기화한다. */
+        fun resetTpmsIds() {
+            viewModelScope.launch {
+                userPreferencesRepository.resetTpmsIds()
+            }
+        }
 
-    /** 현재 차체 기울기를 영점으로 보정한다. (보정값은 앱 종료 시까지 유지) */
-    fun calibrate() {
-        if (_isCalibrating.value) return
-        viewModelScope.launch {
-            _isCalibrating.value = true
-            try {
-                calibrationRepository.calibrate()
-            } finally {
-                _isCalibrating.value = false
+        /** 영점 보정값을 초기화한다(offset = 0). */
+        fun resetCalibration() {
+            calibrationRepository.reset()
+        }
+
+        /** 현재 차체 기울기를 영점으로 보정한다. (보정값은 앱 종료 시까지 유지) */
+        fun calibrate() {
+            if (isCalibratingFlow.value) return
+            viewModelScope.launch {
+                isCalibratingFlow.value = true
+                try {
+                    calibrationRepository.calibrate()
+                } finally {
+                    isCalibratingFlow.value = false
+                }
             }
         }
     }
-}

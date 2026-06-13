@@ -4,8 +4,8 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
-import kr.yooreka.speedo.data.local.entity.TelemetryEntity
 import kotlinx.coroutines.flow.Flow
+import kr.yooreka.speedo.data.local.entity.TelemetryEntity
 
 @Dao
 interface TelemetryDao {

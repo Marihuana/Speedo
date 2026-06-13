@@ -8,24 +8,25 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import kr.yooreka.speedo.data.local.SpeedoDatabase
-import kr.yooreka.speedo.data.local.dao.TelemetryDao
 import kr.yooreka.speedo.data.local.dao.RideDao
+import kr.yooreka.speedo.data.local.dao.TelemetryDao
 import javax.inject.Singleton
 
 @Module
 @InstallIn(SingletonComponent::class)
 object DatabaseModule {
-
     @Provides
     @Singleton
-    fun provideDatabase(@ApplicationContext context: Context): SpeedoDatabase {
+    fun provideDatabase(
+        @ApplicationContext context: Context,
+    ): SpeedoDatabase {
         return Room.databaseBuilder(
             context,
             SpeedoDatabase::class.java,
-            "speedo_database"
+            "speedo_database",
         )
-        .fallbackToDestructiveMigration()
-        .build()
+            .fallbackToDestructiveMigration()
+            .build()
     }
 
     @Provides

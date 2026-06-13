@@ -5,7 +5,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class SpeedResolverTest {
-
     @Test
     fun `no speed returns zero`() {
         assertEquals(0f, SpeedResolver.toKmh(hasSpeed = false, speedMps = 5f, hasSpeedAccuracy = true, speedAccuracyMps = 1f), 0f)

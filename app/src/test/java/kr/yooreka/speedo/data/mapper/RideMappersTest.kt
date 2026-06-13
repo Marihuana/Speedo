@@ -8,19 +8,19 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 class RideMappersTest {
-
     @Test
     fun `RideEntity toDomain maps every field`() {
-        val entity = RideEntity(
-            id = 42L,
-            title = "Morning Ride",
-            startTime = 1_000L,
-            endTime = 5_000L,
-            totalDistance = 12.3f,
-            maxLean = 38f,
-            maxSpeed = 99.5f,
-            duration = 4_000L,
-        )
+        val entity =
+            RideEntity(
+                id = 42L,
+                title = "Morning Ride",
+                startTime = 1_000L,
+                endTime = 5_000L,
+                totalDistance = 12.3f,
+                maxLean = 38f,
+                maxSpeed = 99.5f,
+                duration = 4_000L,
+            )
 
         val ride = entity.toDomain()
 
@@ -42,17 +42,18 @@ class RideMappersTest {
 
     @Test
     fun `TelemetryEntity toDomain maps every field including coordinates and brake`() {
-        val entity = TelemetryEntity(
-            id = 7L,
-            rideId = 42L,
-            timestamp = 1_234L,
-            speed = 55.5f,
-            roll = -12.5f,
-            brakeEvent = BrakeEvent.HARD,
-            brakeForce = 0.8f,
-            latitude = 37.5,
-            longitude = 127.0,
-        )
+        val entity =
+            TelemetryEntity(
+                id = 7L,
+                rideId = 42L,
+                timestamp = 1_234L,
+                speed = 55.5f,
+                roll = -12.5f,
+                brakeEvent = BrakeEvent.HARD,
+                brakeForce = 0.8f,
+                latitude = 37.5,
+                longitude = 127.0,
+            )
 
         val point = entity.toDomain()
 
@@ -69,16 +70,17 @@ class RideMappersTest {
 
     @Test
     fun `TelemetryEntity toDomain preserves null coordinates`() {
-        val point = TelemetryEntity(
-            rideId = 1L,
-            timestamp = 0L,
-            speed = 0f,
-            roll = 0f,
-            brakeEvent = BrakeEvent.NONE,
-            brakeForce = 0f,
-            latitude = null,
-            longitude = null,
-        ).toDomain()
+        val point =
+            TelemetryEntity(
+                rideId = 1L,
+                timestamp = 0L,
+                speed = 0f,
+                roll = 0f,
+                brakeEvent = BrakeEvent.NONE,
+                brakeForce = 0f,
+                latitude = null,
+                longitude = null,
+            ).toDomain()
 
         assertNull(point.latitude)
         assertNull(point.longitude)
