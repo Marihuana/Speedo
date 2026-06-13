@@ -1,0 +1,13 @@
+# local.properties 템플릿
+#
+# 이 파일을 복사해 local.properties 를 만들고 실제 값을 채우세요.
+# local.properties 는 .gitignore 에 의해 커밋되지 않습니다.
+#
+#   cp local.properties.example local.properties
+#
+# Android SDK 경로 (Android Studio가 자동 생성)
+sdk.dir=/path/to/Android/sdk
+
+# Google Maps Platform API 키
+# https://console.cloud.google.com 에서 발급하고, 앱 패키지(kr.yooreka.speedo) + SHA-1 으로 제한하세요.
+MAPS_API_KEY=YOUR_MAPS_API_KEY_HERE

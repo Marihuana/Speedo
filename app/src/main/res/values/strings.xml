@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Every Bari</string>
+
+    <!-- Tabs -->
+    <string name="tab_monitor">MONITOR</string>
+    <string name="tab_records">RECORDS</string>
+    <string name="tab_settings">SETTINGS</string>
+
+    <!-- Dashboard -->
+    <string name="dashboard_title">EVERY BARI</string>
+    <string name="dashboard_subtitle">LIVE TELEMETRY</string>
+    <string name="lean_angle">LEAN ANGLE</string>
+    <string name="tpms_status">TPMS STATUS</string>
+    <string name="rear">REAR</string>
+    <string name="front">FRONT</string>
+
+    <!-- Records -->
+    <string name="records_title">RECORDS</string>
+    <string name="records_subtitle">RIDING HISTORY</string>
+    <string name="total_distance">TOTAL DISTANCE</string>
+    <string name="kilometers">Kilometers</string>
+    <string name="duration">Duration</string>
+    <string name="distance">Distance</string>
+    <string name="max_lean">Max Lean</string>
+    <!-- 기본 주행 기록 제목. %1$s 자리에 ride_title_date_format 으로 포맷된 날짜가 들어간다. -->
+    <string name="ride_title_date_format">MMM dd</string>
+    <string name="default_ride_title">%1$s Riding Record</string>
+    <string name="rename_ride_title">Rename Ride</string>
+    <string name="delete_ride_title">Delete Ride</string>
+    <string name="delete_ride_message">Delete \"%1$s\"? This cannot be undone.</string>
+    <string name="delete">Delete</string>
+
+    <!-- Settings -->
+    <string name="settings_title">SETTINGS</string>
+    <string name="settings_subtitle">CONFIGURATION</string>
+    <string name="section_display">Display</string>
+    <string name="speed_unit">SPEED UNIT</string>
+    <string name="pressure_unit">PRESSURE UNIT</string>
+    <string name="section_sensors">Sensors &amp; BLE</string>
+    <string name="tpms_sensor">TPMS SENSOR</string>
+    <string name="tpms_sensor_desc">Enable tire pressure monitoring</string>
+    <string name="connection_status">CONNECTION STATUS</string>
+    <string name="connected">Connected</string>
+    <string name="disconnected">Disconnected</string>
+    <string name="connect">Connect</string>
+    <string name="disconnect">Disconnect</string>
+    <string name="calibration_title">LEAN ANGLE CALIBRATION</string>
+    <string name="calibration_desc">Reset sensor zero point</string>
+    <string name="calibrate_button">CALIBRATE ZERO POINT</string>
+    <string name="calibrating">CALIBRATING…</string>
+    <string name="calibration_reset">Calibration reset</string>
+    <string name="app_version">Every Bari Telemetry v1.1.0</string>
+
+    <!-- Dialogs -->
+    <string name="dialog_connect_title">Sensor Connection</string>
+    <string name="front_sensor_id">Front Sensor ID</string>
+    <string name="rear_sensor_id">Rear Sensor ID</string>
+    <string name="cancel">Cancel</string>
+    <string name="confirm">Confirm</string>
+    <string name="dialog_disconnect_title">Disconnect</string>
+    <string name="dialog_disconnect_desc">Disconnecting will terminate TPMS monitoring immediately. Continue?</string>
+    <string name="ble_permission_required">Bluetooth permission is required to connect the TPMS sensor.</string>
+    <string name="reset_tpms_ids">RESET SENSOR ID</string>
+    <string name="tpms_ids_reset">Sensor IDs have been reset</string>
+    <string name="dialog_reset_title">Reset Sensor IDs</string>
+    <string name="dialog_reset_desc">Resetting will clear the saved sensor IDs and turn off TPMS. Continue?</string>
+
+    <!-- Log Screen -->
+    <string name="ride_log">RIDE LOG</string>
+    <string name="session_summary">SESSION SUMMARY</string>
+    <string name="selected_point_telemetry">SELECTED POINT TELEMETRY</string>
+    <string name="tap_points_hint">TAP POINTS ON ROUTE FOR TELEMETRY</string>
+    
+    <!-- Service -->
+    <string name="service_title">Every Bari Recording</string>
+    <string name="service_desc">Telemetry data is being recorded...</string>
+</resources>
