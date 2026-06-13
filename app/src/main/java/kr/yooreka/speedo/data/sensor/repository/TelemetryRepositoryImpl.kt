@@ -9,9 +9,15 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.scan
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kr.yooreka.speedo.R
 import kr.yooreka.speedo.data.local.dao.RideDao
@@ -19,7 +25,8 @@ import kr.yooreka.speedo.data.local.dao.TelemetryDao
 import kr.yooreka.speedo.data.local.entity.RideEntity
 import kr.yooreka.speedo.data.local.entity.TelemetryEntity
 import kr.yooreka.speedo.domain.model.AccelerometerData
-import kr.yooreka.speedo.domain.model.BrakeEvent
+import kr.yooreka.speedo.domain.model.BrakeDetector
+import kr.yooreka.speedo.domain.model.BrakeDetector.BrakeState
 import kr.yooreka.speedo.domain.model.GravityData
 import kr.yooreka.speedo.domain.model.LocationData
 import kr.yooreka.speedo.domain.repository.LeanCalibrationRepository
@@ -29,6 +36,7 @@ import kr.yooreka.speedo.service.RecordingService
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.math.abs
@@ -65,10 +73,27 @@ class TelemetryRepositoryImpl
                 results[0]
             }
 
-        @Volatile private var maxLeanInInterval: Float = 0f
+        // 구간 내 절대값이 가장 큰 기울기(부호 보존). 200ms 타이머가 getAndSet 으로 소비하므로
+        // read-then-reset 레이스를 피하기 위해 AtomicReference 로 둔다.
+        private val maxLeanInInterval = AtomicReference(0f)
+
+        // 새 GPS fix 가 들어온 시점의 좌표를 잠시 보관(dirty-flag). 다음 200ms 틱이 한 번만
+        // 소비(getAndSet(null))하여 그 행에만 실좌표를 넣고, 이후 틱은 위치 null 로 기록한다(F-13c 보간 대비).
+        private val pendingLocation = AtomicReference<Pair<Double, Double>?>(null)
 
         private val _isRecording = MutableStateFlow(false)
         override val isRecording: Flow<Boolean> = _isRecording.asStateFlow()
+
+        // 가속도 스트림을 상시 scan 하여 최신 제동 판정 상태를 보유한다.
+        // 대시보드(GetDashboardTelemetryUseCase)와 기록(200ms 타이머)이 동일 소스를 쓴다.
+        override val brakeStream: StateFlow<BrakeState> =
+            accelRepo.dataStream
+                .scan(BrakeState(), BrakeDetector::reduce)
+                .stateIn(
+                    scope = repositoryScope,
+                    started = SharingStarted.Eagerly,
+                    initialValue = BrakeState(),
+                )
 
         private fun addToBuffer(entity: TelemetryEntity) {
             synchronized(buffer) {
@@ -118,18 +143,20 @@ class TelemetryRepositoryImpl
                 startTimestamp = now
                 maxLeanForSession = 0f
                 maxSpeedForSession = 0f
-                maxLeanInInterval = 0f
+                maxLeanInInterval.set(0f)
+                pendingLocation.set(null)
                 distanceTracker.reset()
                 _isRecording.value = true
 
+                // 중력 센서: 구간 내 부호 보존 최대 기울기와 세션 최대 기울기를 누적한다(행 생성과 무관).
                 val aggregatorJob =
                     launch {
                         gravityRepo.dataStream.collect { gravity ->
                             val signedRoll = gravity.calibratedRoll(calibrationRepository.offsetDegrees.value)
                             val magnitude = abs(signedRoll)
                             // 구간 내 절대값이 가장 큰 기울기를 '부호까지' 보존해 저장한다(좌/우 방향 유지).
-                            if (magnitude > abs(maxLeanInInterval)) {
-                                maxLeanInInterval = signedRoll
+                            maxLeanInInterval.getAndUpdate { current ->
+                                if (magnitude > abs(current)) signedRoll else current
                             }
                             // 세션 최대 기울기는 요약(RideEntity.maxLean)용이므로 크기(절대값)로 둔다.
                             if (magnitude > maxLeanForSession) {
@@ -138,10 +165,11 @@ class TelemetryRepositoryImpl
                         }
                     }
 
+                // GPS: 거리 누적 / 세션 최고 속도 갱신 / 다음 시간주기 행에 채울 좌표(pending) 세팅만 담당.
                 val locationJob =
                     launch {
                         locationRepo.dataStream.collect { locationData ->
-                            // Skip if location is invalid
+                            // (0,0) 좌표는 fix 없음으로 간주하고 무시한다.
                             if (locationData.latitude == 0.0 && locationData.longitude == 0.0) return@collect
 
                             // Accumulate distance (직전 좌표와의 구간 거리 누적, 정확도 게이트 적용)
@@ -152,20 +180,33 @@ class TelemetryRepositoryImpl
                                 maxSpeedForSession = locationData.speed
                             }
 
-                            // Downsample: Get max lean from the last interval and reset it
-                            val leanToSave = maxLeanInInterval
-                            maxLeanInInterval = 0f
+                            // 새 fix 시점의 좌표를 보관. 다음 200ms 틱 한 번만 이 좌표를 소비한다(F-13c 보간 대비).
+                            pendingLocation.set(locationData.latitude to locationData.longitude)
+                        }
+                    }
+
+                // 200ms(5Hz) 시간주기 타이머: GPS 콜백과 무관하게 기울기/제동 행을 주기 저장한다.
+                val periodicJob =
+                    launch {
+                        while (isActive) {
+                            delay(LOG_INTERVAL_MS)
+
+                            // 구간 최대 기울기를 소비(읽고 리셋)한다.
+                            val leanToSave = maxLeanInInterval.getAndSet(0f)
+                            val brake = brakeStream.value
+                            // 이 틱에 새 GPS fix 좌표가 있으면 한 번만 소비, 없으면 위치 null.
+                            val fix = pendingLocation.getAndSet(null)
 
                             addToBuffer(
                                 TelemetryEntity(
                                     rideId = currentRideId,
                                     timestamp = System.currentTimeMillis(),
-                                    speed = locationData.speed,
+                                    speed = locationRepo.dataStream.value.speed,
                                     roll = leanToSave,
-                                    brakeEvent = BrakeEvent.NONE,
-                                    brakeForce = 0f,
-                                    latitude = locationData.latitude,
-                                    longitude = locationData.longitude,
+                                    brakeEvent = brake.event,
+                                    brakeForce = brake.force,
+                                    latitude = fix?.first,
+                                    longitude = fix?.second,
                                 ),
                             )
                         }
@@ -175,6 +216,7 @@ class TelemetryRepositoryImpl
                     launch {
                         aggregatorJob.join()
                         locationJob.join()
+                        periodicJob.join()
                     }
             }
         }
@@ -233,6 +275,9 @@ class TelemetryRepositoryImpl
         }
 
         companion object {
+            /** 텔레메트리 시간주기 저장 간격(ms). 5Hz(200ms) 고정. PRD §4.1 기본값. */
+            private const val LOG_INTERVAL_MS = 200L
+
             /** 텔레메트리 버퍼를 DB에 플러시하는 임계 크기. */
             private const val BUFFER_SIZE = 100
 
