@@ -357,7 +357,8 @@ fun MapRouteSection(
                 )
             }
             selectedLatLng?.let { point ->
-                Marker(state = MarkerState(position = point))
+                val markerState = remember(point) { MarkerState(position = point) }
+                Marker(state = markerState)
             }
         }
 
