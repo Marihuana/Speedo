@@ -47,7 +47,8 @@
 |---|---------|-------|--------|---------------------------|------|
 | F-01 | 속도 표시 | GPS Location(speed, speedAccuracy) | 정수 속도값 + 단위 | `hasSpeed=false` → 0. `hasSpeedAccuracy && speed≤accuracy` → 0. `speed<0.7 m/s(≈2.5km/h)` → 0. 그 외 `km/h = m/s×3.6`. 표시값은 정수로 절삭. | `SpeedResolver.kt:17,25-28`, `DashBoardViewModel.kt:72-76` |
 | F-02 | 속도 단위 변환 | 설정값 speedUnit ∈ {KM/H, MPH} | 변환된 정수 속도 | MPH 선택 시 `mph = km/h × 0.621371` 후 정수 절삭. 기본값 KM/H. | `DashBoardViewModel.kt:72-76`, `UserPreferencesRepository.kt:20,43` |
-| F-03 | 차체 기울기 표시 | Rotation Vector(자이로 융합) + Gravity 센서 + 영점 offset | `roll = 정수°` | `roll = toDegrees(atan2(x, √(y²+z²))) − offset`. Rotation Vector를 우선 사용해 선회 중 원심가속도에 의한 오차를 최소화하고, 미지원 기기만 Gravity 센서로 폴백. | `SensorData.kt:24-37`, `GravityRepositoryImpl.kt` |
+| F-03 | 차체 기울기 표시 | Rotation Vector(자이로 융합) + Gravity 센서 + 영점 offset | `roll = 정수°` | `roll = toDegrees(atan2(x, √(y²+z²))) − offset`. Rotation Vector를 우선 사용해 선회 중 원심가속도에 의한 오차를 최소화하고, 미지원 기기만 Gravity 센서로 폴백. **표시 스무딩은 F-03a 참조.** | `SensorData.kt:24-37`, `GravityRepositoryImpl.kt` |
+| F-03a | 기울기 표시 스무딩 | F-03 `roll`(정수°), 100ms 갱신 | 매끄럽게 보간된 게이지/텍스트 | ✅ 구현됨. 100ms 주기 갱신 시 게이지·수치의 step 끊김을 제거한다. **UI 레이어에서만 스무딩** — `roll` 원본 및 기록값(F-10)에는 무영향. `SpeedometerCard`의 게이지 fill과 하단 텍스트를 Compose `animateFloatAsState`로 보간한다. `animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium)`(≈400f) — 오버슈트 없이 약 150~250ms 내 수렴(**허용 지연 상한 250ms**). 하단 방향 텍스트("L/R n°")도 동일 보간값(`animatedLean`)을 정수 절삭해 게이지와 동기 표시한다. 데이터 레이어 저역통과 필터(F-05식)는 **미적용**(지연 이중 누적 방지). | `SpeedometerCard.kt:55-176` |
 | F-04 | 기울기 영점 보정 | 사용자의 보정 실행(센서 정지 상태) | offset(도) 저장 | 보정 시 센서 미가동이면 start 후 첫 유효 샘플 대기(타임아웃 2,000ms). 유효 샘플 도착 시 현재 roll을 offset으로 저장, 타임아웃 시 기존 offset 유지. offset은 앱 프로세스 종료 전까지 메모리 유지(영속 아님). | `LeanCalibrationRepositoryImpl.kt:25-56` |
 | F-05 | 급제동 감지 | 가속도 y축 시계열 | BrakeEvent(NONE/LIGHT/MODERATE/HARD) + force | 저역통과 `filtered = 0.8×raw + 0.2×prev`. `Δ=|filtered−prev|`. 직전 이벤트 후 2,000ms(쿨다운) 경과 + Δ≥3.5 시: Δ≥7.0→HARD, Δ≥4.9→MODERATE, 그 외→LIGHT. ⚠️ 현행 한계: 대시보드에서는 감지하나 **주행 로그에는 미기록**(저장 시 `brakeEvent=NONE`/`brakeForce=0f` 고정). 목표(F-13b)에서 시간주기 행에 함께 저장. | `GetDashboardTelemetryUseCase.kt:25-27,51-65`, `TelemetryRepositoryImpl.kt:150-151` |
 | F-06 | 주행 거리 누적 | GPS 좌표열(lat,lng,accuracy) | 누적 거리(km) | (0,0) 좌표 무시. 정확도>25m 측위 무시. 직전 채택 좌표와의 구간 거리<2m이면 무시(기준점 유지). 그 외 구간 거리를 WGS84(`Location.distanceBetween`)로 누적. 첫 유효 좌표는 기준점만 설정. | `RideDistanceTracker.kt:48-62`, `TelemetryRepositoryImpl.kt:51-58,136,220,223` |
@@ -77,6 +78,7 @@
 
 ### 2.2 대시보드 갱신 사양
 - 텔레메트리 스트림은 100ms 주기로 샘플링하여 UI에 반영. 근거: `DashBoardViewModel.kt:66`
+- **기울기(Lean) 표시 스무딩(목표)**: 100ms 주기의 데이터 갱신 시 시각적 끊김을 최소화하기 위해 UI 레벨에서 게이지/수치에 스무딩을 적용한다. 구현 사양(`animateFloatAsState` + `spring`, 허용 지연 상한 250ms, 데이터 레이어 무영향)은 **F-03a** 참조.
 - 구독 종료 후 5,000ms간 상태 공유 유지(WhileSubscribed). 근거: `DashBoardViewModel.kt:106`
 
 ---
