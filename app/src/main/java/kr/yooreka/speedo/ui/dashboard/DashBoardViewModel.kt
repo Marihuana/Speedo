@@ -48,7 +48,8 @@ class DashBoardViewModel
                 getDashboardTelemetryUseCase().sample(100L),
                 telemetryRepository.isRecording,
                 userPreferencesRepository.userPreferencesFlow,
-            ) { data, recording, prefs ->
+                telemetryRepository.autoStopSuggested,
+            ) { data, recording, prefs, autoStop ->
                 // Convert speed if unit is MPH
                 val displaySpeed =
                     if (prefs.speedUnit == "MPH") {
@@ -64,6 +65,7 @@ class DashBoardViewModel
                     brakeEvent = data.brakeEvent,
                     isRecording = recording,
                     speedUnit = prefs.speedUnit,
+                    autoStopSuggested = autoStop,
                 )
             }
                 .stateIn(
@@ -89,6 +91,21 @@ class DashBoardViewModel
 
         fun onConfirmRecording() {
             getDashboardTelemetryUseCase.startRecording()
+        }
+
+        /** 주행 종료 예상 다이얼로그 '아니오'(계속): 감지 타이머만 초기화하고 기록 유지(F-18). */
+        fun onAutoStopContinue() {
+            telemetryRepository.continueRide()
+        }
+
+        /** 주행 종료 예상 다이얼로그 '예'(종료): 기록을 종료한다(+광고 노출). */
+        fun onAutoStopConfirm() {
+            viewModelScope.launch {
+                getDashboardTelemetryUseCase.stopRecording()
+                if (!billingRepository.isAdRemoved.value) {
+                    _uiEvent.emit(DashBoardUiEvent.ShowInterstitialAd)
+                }
+            }
         }
 
         override fun onCleared() {

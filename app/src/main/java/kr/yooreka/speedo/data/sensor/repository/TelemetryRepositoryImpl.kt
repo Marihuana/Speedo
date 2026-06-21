@@ -24,6 +24,7 @@ import kr.yooreka.speedo.data.local.dao.RideDao
 import kr.yooreka.speedo.data.local.dao.TelemetryDao
 import kr.yooreka.speedo.data.local.entity.RideEntity
 import kr.yooreka.speedo.data.local.entity.TelemetryEntity
+import kr.yooreka.speedo.data.local.preferences.UserPreferencesRepository
 import kr.yooreka.speedo.data.sensor.lean.LeanDiagnosticLogger
 import kr.yooreka.speedo.domain.model.AccelerometerData
 import kr.yooreka.speedo.domain.model.BrakeDetector
@@ -54,6 +55,7 @@ class TelemetryRepositoryImpl
         private val rideDao: RideDao,
         private val calibrationRepository: LeanCalibrationRepository,
         private val leanDiagnosticLogger: LeanDiagnosticLogger,
+        private val userPreferencesRepository: UserPreferencesRepository,
     ) : TelemetryRepository {
         private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         private val buffer = mutableListOf<TelemetryEntity>()
@@ -85,6 +87,24 @@ class TelemetryRepositoryImpl
 
         private val _isRecording = MutableStateFlow(false)
         override val isRecording: Flow<Boolean> = _isRecording.asStateFlow()
+
+        // 주행 종료 예상 감지(F-18). 저속(< AUTO_STOP_SPEED_KMH)이 임계 시간 지속되면 true.
+        private val _autoStopSuggested = MutableStateFlow(false)
+        override val autoStopSuggested: StateFlow<Boolean> = _autoStopSuggested.asStateFlow()
+
+        // 감지 임계값(분, 0=OFF). 설정(F-18a)을 상시 반영한다.
+        @Volatile
+        private var autoStopThresholdMin = UserPreferencesRepository.DEFAULT_AUTO_STOP_MIN
+
+        // 저속 구간이 시작된 시각(ms). 0이면 현재 저속 구간 아님.
+        @Volatile
+        private var lowSpeedSinceMs = 0L
+
+        init {
+            repositoryScope.launch {
+                userPreferencesRepository.autoStopThresholdFlow.collect { autoStopThresholdMin = it }
+            }
+        }
 
         // 가속도 스트림을 상시 scan 하여 최신 제동 판정 상태를 보유한다.
         // 대시보드(GetDashboardTelemetryUseCase)와 기록(200ms 타이머)이 동일 소스를 쓴다.
@@ -151,6 +171,8 @@ class TelemetryRepositoryImpl
                 maxLeanInInterval.set(0f)
                 pendingLocation.set(null)
                 distanceTracker.reset()
+                lowSpeedSinceMs = 0L
+                _autoStopSuggested.value = false
                 _isRecording.value = true
 
                 // 활성 측정 전략(F-03): 구간 내 부호 보존 최대 기울기와 세션 최대 기울기를 누적한다(행 생성과 무관).
@@ -202,12 +224,16 @@ class TelemetryRepositoryImpl
                             val brake = brakeStream.value
                             // 이 틱에 새 GPS fix 좌표가 있으면 한 번만 소비, 없으면 위치 null.
                             val fix = pendingLocation.getAndSet(null)
+                            val speedNow = locationRepo.dataStream.value.speed
+
+                            // 주행 종료 예상 감지(F-18): 저속 지속 시간 추적.
+                            checkAutoStop(speedNow)
 
                             addToBuffer(
                                 TelemetryEntity(
                                     rideId = currentRideId,
                                     timestamp = System.currentTimeMillis(),
-                                    speed = locationRepo.dataStream.value.speed,
+                                    speed = speedNow,
                                     roll = leanToSave,
                                     brakeEvent = brake.event,
                                     brakeForce = brake.force,
@@ -248,6 +274,8 @@ class TelemetryRepositoryImpl
             recordingJob?.cancel()
             recordingJob = null
             currentRideId = -1
+            lowSpeedSinceMs = 0L
+            _autoStopSuggested.value = false
 
             // 진단 CSV 세션 마감(파일 flush/close).
             leanDiagnosticLogger.stop()
@@ -266,6 +294,37 @@ class TelemetryRepositoryImpl
                         ),
                     )
                 }
+            }
+        }
+
+        override fun continueRide() {
+            // '계속' 선택: 감지 타이머 초기화. 이후 다시 임계 시간 저속이면 재발행한다(§4.7).
+            lowSpeedSinceMs = 0L
+            _autoStopSuggested.value = false
+        }
+
+        /**
+         * 주행 종료 예상 감지(F-18). 저속(< [AUTO_STOP_SPEED_KMH], 정지+도보 포함)이 임계 시간(분) 지속되면
+         * [autoStopSuggested] 를 true 로 만든다. 속도가 회복되면 타이머와 제안을 모두 리셋한다.
+         */
+        private fun checkAutoStop(speedKmh: Float) {
+            val thresholdMin = autoStopThresholdMin
+            if (thresholdMin <= 0) {
+                // OFF: 감지 비활성.
+                lowSpeedSinceMs = 0L
+                return
+            }
+            if (speedKmh >= AUTO_STOP_SPEED_KMH) {
+                // 주행 재개 → 타이머/제안 리셋.
+                lowSpeedSinceMs = 0L
+                _autoStopSuggested.value = false
+                return
+            }
+            val now = System.currentTimeMillis()
+            if (lowSpeedSinceMs == 0L) {
+                lowSpeedSinceMs = now
+            } else if (!_autoStopSuggested.value && now - lowSpeedSinceMs >= thresholdMin * MILLIS_PER_MIN) {
+                _autoStopSuggested.value = true
             }
         }
 
@@ -295,5 +354,10 @@ class TelemetryRepositoryImpl
 
             /** 정확도가 이보다 나쁜(큰) 측위는 거리 계산에서 제외한다. */
             private const val MAX_ACCURACY_METERS = 25f
+
+            /** 주행 종료 예상 감지(F-18): 이 속도(km/h) 미만이면 정지/도보로 간주(< 7km/h, 끌바·도보 포함). */
+            private const val AUTO_STOP_SPEED_KMH = 7f
+
+            private const val MILLIS_PER_MIN = 60_000L
         }
     }
