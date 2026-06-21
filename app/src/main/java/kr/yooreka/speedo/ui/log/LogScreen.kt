@@ -28,6 +28,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -159,6 +160,7 @@ private fun directionStamp(
 }
 
 /** 지도에 그릴 경로 점: 위치 + 구간 색상(뱅킹각) + 구간 선 모양(속도) */
+@Immutable
 data class RoutePoint(
     val position: LatLng,
     val color: Color,

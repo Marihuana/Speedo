@@ -3,7 +3,7 @@ package kr.yooreka.speedo.fake
 import android.app.Activity
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kr.yooreka.speedo.data.billing.BillingRepository
+import kr.yooreka.speedo.domain.repository.BillingRepository
 
 /**
  * [BillingRepository] Fake. 결제/Play Billing 없이 광고 제거 상태를 제어한다.

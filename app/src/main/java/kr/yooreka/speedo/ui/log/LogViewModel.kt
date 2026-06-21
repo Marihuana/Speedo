@@ -4,17 +4,21 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kr.yooreka.speedo.di.DefaultDispatcher
 import kr.yooreka.speedo.domain.model.RideTelemetry
 import kr.yooreka.speedo.domain.usecase.GetRideDetailUseCase
 import kr.yooreka.speedo.domain.usecase.GetRideTelemetryUseCase
 import kr.yooreka.speedo.domain.usecase.InterpolateRoutePathUseCase
 import kr.yooreka.speedo.domain.usecase.InterpolateShadowSpeedUseCase
-import java.text.SimpleDateFormat
-import java.util.Date
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 import javax.inject.Inject
 
@@ -39,11 +43,14 @@ class LogViewModel
         private val getRideTelemetryUseCase: GetRideTelemetryUseCase,
         private val interpolateShadowSpeedUseCase: InterpolateShadowSpeedUseCase,
         private val interpolateRoutePathUseCase: InterpolateRoutePathUseCase,
+        @DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher,
     ) : ViewModel() {
         private val _uiState = MutableStateFlow(LogState())
         val uiState: StateFlow<LogState> = _uiState.asStateFlow()
 
-        private val dateFormatter = SimpleDateFormat("MMM dd, yyyy HH:mm", Locale.getDefault())
+        // DateTimeFormatter 는 불변·thread-safe (SimpleDateFormat 대체).
+        private val dateFormatter =
+            DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm", Locale.getDefault()).withZone(ZoneId.systemDefault())
 
         init {
             val rideId = savedStateHandle.get<Long>("rideId") ?: -1L
@@ -57,10 +64,12 @@ class LogViewModel
         private fun fetchRideDetails(rideId: Long) {
             viewModelScope.launch {
                 val telemetryData = getRideTelemetryUseCase(rideId).getOrDefault(emptyList())
-                // GPS 음영(터널) 구간 속도를 진입/진출 앵커 평균속도로 역산(F-13d) → 좌표 보간 전에 적용.
-                val speedFilled = interpolateShadowSpeedUseCase(telemetryData)
-                // 시간주기(F-13b) 행의 빈 좌표를 보간해 경로 점으로 채운다(F-13c). 최고속도는 원본 기준 유지.
-                val routePoints = interpolateRoutePathUseCase(speedFilled)
+                // CPU 집약 보간(F-13c/d)은 Default 디스패처로 오프로딩해 UI/지도 렌더와 경합하지 않게 한다.
+                val routePoints =
+                    withContext(defaultDispatcher) {
+                        // 음영(터널) 구간 속도 역산(F-13d) → 좌표 보간(F-13c) 순서.
+                        interpolateRoutePathUseCase(interpolateShadowSpeedUseCase(telemetryData))
+                    }
 
                 getRideDetailUseCase(rideId).fold(
                     onSuccess = { ride ->
@@ -69,7 +78,7 @@ class LogViewModel
                             LogState(
                                 isLoading = false,
                                 title = ride.title,
-                                date = dateFormatter.format(Date(ride.startTime)),
+                                date = dateFormatter.format(Instant.ofEpochMilli(ride.startTime)),
                                 duration = formatDuration(ride.duration),
                                 distance = String.format("%.1f", ride.totalDistance),
                                 maxLean = String.format("%.0f", ride.maxLean),
