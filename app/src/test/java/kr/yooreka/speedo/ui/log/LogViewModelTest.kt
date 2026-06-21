@@ -9,6 +9,7 @@ import kr.yooreka.speedo.domain.model.RideTelemetry
 import kr.yooreka.speedo.domain.usecase.GetRideDetailUseCase
 import kr.yooreka.speedo.domain.usecase.GetRideTelemetryUseCase
 import kr.yooreka.speedo.domain.usecase.InterpolateRoutePathUseCase
+import kr.yooreka.speedo.domain.usecase.InterpolateShadowSpeedUseCase
 import kr.yooreka.speedo.domain.usecase.LinearPathInterpolator
 import kr.yooreka.speedo.fake.FakeRideRepository
 import kr.yooreka.speedo.testutil.MainDispatcherRule
@@ -38,6 +39,7 @@ class LogViewModelTest {
                 ),
             getRideDetailUseCase = GetRideDetailUseCase(repository),
             getRideTelemetryUseCase = GetRideTelemetryUseCase(repository),
+            interpolateShadowSpeedUseCase = InterpolateShadowSpeedUseCase(),
             interpolateRoutePathUseCase = InterpolateRoutePathUseCase(LinearPathInterpolator()),
         )
 
