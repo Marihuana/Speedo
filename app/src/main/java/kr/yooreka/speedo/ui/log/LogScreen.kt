@@ -3,6 +3,9 @@ package kr.yooreka.speedo.ui.log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
@@ -28,12 +31,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -59,6 +64,9 @@ import com.google.maps.android.compose.Marker
 import com.google.maps.android.compose.MarkerState
 import com.google.maps.android.compose.Polyline
 import com.google.maps.android.compose.rememberCameraPositionState
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kr.yooreka.speedo.R
 import kotlin.math.abs
 
@@ -239,6 +247,8 @@ fun LogScreen(
             }
             viewModel.selectPoint(closestEntity)
         },
+        onSelectPrevious = { viewModel.selectPrevious() },
+        onSelectNext = { viewModel.selectNext() },
         modifier = modifier,
     )
 }
@@ -256,6 +266,8 @@ fun LogScreenContent(
     segmentSummary: RideSummary?,
     onBackClick: () -> Unit = {},
     onMapClick: (LatLng) -> Unit = {},
+    onSelectPrevious: () -> Unit = {},
+    onSelectNext: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     Box(
@@ -293,6 +305,8 @@ fun LogScreenContent(
         RideSummarySheet(
             summary = summary,
             segmentSummary = segmentSummary,
+            onSelectPrevious = onSelectPrevious,
+            onSelectNext = onSelectNext,
             modifier = Modifier.align(Alignment.BottomCenter),
         )
     }
@@ -334,7 +348,14 @@ fun LogHeader(
 
         Spacer(modifier = Modifier.width(16.dp))
 
-        Column {
+        // 지도와 색이 비슷해 가독성이 떨어지므로 반투명 다크 배경을 깔아 타이틀/시간을 분리한다.
+        Column(
+            modifier =
+                Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color(0xCC0D1424))
+                    .padding(horizontal = 20.dp, vertical = 8.dp),
+        ) {
             Text(
                 text = title,
                 color = PrimaryText,
@@ -531,6 +552,8 @@ data class RideSummary(
 fun RideSummarySheet(
     summary: RideSummary,
     segmentSummary: RideSummary?,
+    onSelectPrevious: () -> Unit = {},
+    onSelectNext: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -662,7 +685,67 @@ fun RideSummarySheet(
                     }
                 }
             }
+
+            // 앞/뒤 경로 점 이동(F-13 사용성): 지도를 정확히 탭하지 않아도 점 단위로 이동 가능.
+            Spacer(modifier = Modifier.height(20.dp))
+            Row(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                SegmentNavButton(label = "◀ PREV", onStep = onSelectPrevious, modifier = Modifier.weight(1f))
+                SegmentNavButton(label = "NEXT ▶", onStep = onSelectNext, modifier = Modifier.weight(1f))
+            }
         }
+    }
+}
+
+/** 길게 누르면 [onStep]을 빠르게 반복 호출하는 초기 지연/반복 간격(ms). */
+private const val NAV_HOLD_INITIAL_DELAY_MS = 350L
+private const val NAV_HOLD_REPEAT_MS = 60L
+
+@Composable
+private fun SegmentNavButton(
+    label: String,
+    onStep: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val scope = rememberCoroutineScope()
+    Box(
+        modifier =
+            modifier
+                .height(44.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .background(Color(0xFF1D293D))
+                .border(0.6.dp, Color(0xFF314158), RoundedCornerShape(14.dp))
+                .pointerInput(Unit) {
+                    awaitEachGesture {
+                        awaitFirstDown(requireUnconsumed = false)
+                        onStep() // 짧게 탭해도 1회 이동.
+                        // 꾹 누르면 초기 지연 후 다음 점으로 빠르게 연속 이동한다.
+                        val repeatJob =
+                            scope.launch {
+                                delay(NAV_HOLD_INITIAL_DELAY_MS)
+                                while (isActive) {
+                                    onStep()
+                                    delay(NAV_HOLD_REPEAT_MS)
+                                }
+                            }
+                        waitForUpOrCancellation()
+                        repeatJob.cancel()
+                    }
+                },
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = label,
+            color = Color(0xFFCAD5E2),
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 1.2.sp,
+        )
     }
 }
 
