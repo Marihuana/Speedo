@@ -33,6 +33,10 @@ android {
 
         // AndroidManifest의 ${MAPS_API_KEY} 자리에 주입됩니다.
         manifestPlaceholders["MAPS_API_KEY"] = mapsApiKey
+
+        // 광고 노출 여부. 알파 테스트 기간에는 광고를 노출하지 않는다(false).
+        // 정식 출시 시 true 로 변경(또는 release 빌드타입에서 override).
+        buildConfigField("boolean", "ADS_ENABLED", "false")
     }
 
     buildTypes {
@@ -53,6 +57,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 

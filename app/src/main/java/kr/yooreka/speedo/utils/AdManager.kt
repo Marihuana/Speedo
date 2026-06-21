@@ -9,6 +9,7 @@ import com.google.android.gms.ads.LoadAdError
 import com.google.android.gms.ads.interstitial.InterstitialAd
 import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kr.yooreka.speedo.BuildConfig
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -26,6 +27,8 @@ class AdManager
         private val adUnitId = "ca-app-pub-3940256099942544/1033173712"
 
         fun loadInterstitialAd() {
+            // 광고 비활성화(알파 등) 시 로드하지 않는다.
+            if (!BuildConfig.ADS_ENABLED) return
             if (interstitialAd != null || isAdLoading) {
                 return
             }
@@ -55,6 +58,11 @@ class AdManager
             activity: Activity,
             onAdDismissed: () -> Unit,
         ) {
+            // 광고 비활성화(알파 등) 시 광고를 띄우지 않고 즉시 진행한다.
+            if (!BuildConfig.ADS_ENABLED) {
+                onAdDismissed()
+                return
+            }
             if (interstitialAd != null) {
                 interstitialAd?.fullScreenContentCallback =
                     object : FullScreenContentCallback() {
