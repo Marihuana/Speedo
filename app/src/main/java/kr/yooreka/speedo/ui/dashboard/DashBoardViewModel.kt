@@ -12,8 +12,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import kr.yooreka.speedo.data.billing.BillingRepository
 import kr.yooreka.speedo.data.local.preferences.UserPreferencesRepository
+import kr.yooreka.speedo.domain.repository.BillingRepository
 import kr.yooreka.speedo.domain.repository.TelemetryRepository
 import kr.yooreka.speedo.domain.usecase.GetDashboardTelemetryUseCase
 import javax.inject.Inject

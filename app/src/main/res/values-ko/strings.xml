@@ -138,4 +138,9 @@
     <string name="auto_stop_notif_text">저속이 지속되어 주행 종료가 감지되었습니다.</string>
     <string name="auto_stop_notif_stop">종료</string>
     <string name="auto_stop_notif_continue">계속</string>
+    <string name="notif_channel_recording">주행 기록</string>
+    <string name="notif_channel_auto_stop">주행 종료 감지</string>
+
+    <!-- Misc -->
+    <string name="press_back_again_to_exit">한 번 더 누르시면 앱이 종료됩니다.</string>
 </resources>

@@ -8,12 +8,13 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import kr.yooreka.speedo.data.billing.BillingRepository
+import kr.yooreka.speedo.domain.repository.BillingRepository
 import kr.yooreka.speedo.domain.usecase.DeleteRideUseCase
 import kr.yooreka.speedo.domain.usecase.GetRideHistoryUseCase
 import kr.yooreka.speedo.domain.usecase.UpdateRideTitleUseCase
-import java.text.SimpleDateFormat
-import java.util.Date
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 import javax.inject.Inject
 
@@ -32,7 +33,9 @@ class RecordsViewModel
         private val deleteRideUseCase: DeleteRideUseCase,
         private val billingRepository: BillingRepository,
     ) : ViewModel() {
-        private val dateFormatter = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
+        // DateTimeFormatter 는 불변·thread-safe (SimpleDateFormat 대체).
+        private val dateFormatter =
+            DateTimeFormatter.ofPattern("MMM dd, yyyy", Locale.getDefault()).withZone(ZoneId.systemDefault())
 
         val uiState: StateFlow<RecordsState> =
             combine(
@@ -44,7 +47,7 @@ class RecordsViewModel
                         RideRecord(
                             id = ride.id,
                             title = ride.title,
-                            date = dateFormatter.format(Date(ride.startTime)),
+                            date = dateFormatter.format(Instant.ofEpochMilli(ride.startTime)),
                             duration = formatDuration(ride.duration),
                             distance = String.format("%.1f km", ride.totalDistance),
                             maxLean = String.format("%.0f°", ride.maxLean),

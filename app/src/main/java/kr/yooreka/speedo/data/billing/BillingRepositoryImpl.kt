@@ -15,10 +15,12 @@ import com.android.billingclient.api.QueryPurchasesParams
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kr.yooreka.speedo.domain.repository.BillingRepository
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -33,6 +35,9 @@ class BillingRepositoryImpl
             const val FORCE_ADS_OFF = false
             private const val PREMIUM_PRODUCT_ID = "remove_ads_premium"
         }
+
+        // @Singleton 수명과 함께 사는 구조적 스코프(즉석 CoroutineScope 생성 금지).
+        private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
         private val _isAdRemoved = MutableStateFlow(FORCE_ADS_OFF)
         override val isAdRemoved: StateFlow<Boolean> = _isAdRemoved.asStateFlow()
@@ -135,7 +140,7 @@ class BillingRepositoryImpl
         }
 
         private fun processPurchases(purchases: List<Purchase>) {
-            CoroutineScope(Dispatchers.IO).launch {
+            scope.launch {
                 for (purchase in purchases) {
                     if (purchase.purchaseState == Purchase.PurchaseState.PURCHASED) {
                         if (purchase.products.contains(PREMIUM_PRODUCT_ID)) {

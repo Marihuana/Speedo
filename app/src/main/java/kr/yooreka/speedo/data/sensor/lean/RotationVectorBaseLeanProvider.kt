@@ -25,6 +25,10 @@ abstract class RotationVectorBaseLeanProvider(
     private var job: Job? = null
     private val rotationMatrix = FloatArray(9)
 
+    // 고주파 센서 이벤트마다 새 배열을 만들지 않도록 입력 버퍼를 재사용한다(단일 수집 코루틴 전용).
+    private val vector4 = FloatArray(4)
+    private val vector3 = FloatArray(3)
+
     private val _leanStream = MutableStateFlow(LeanMath.NO_DATA)
     override val leanStream: StateFlow<Float> = _leanStream.asStateFlow()
 
@@ -39,7 +43,19 @@ abstract class RotationVectorBaseLeanProvider(
                         return@collect
                     }
                     // w 미제공(0) 기기는 length-3 으로 넘겨 w 를 내부 계산하게 한다.
-                    val vector = if (d.w != 0f) floatArrayOf(d.x, d.y, d.z, d.w) else floatArrayOf(d.x, d.y, d.z)
+                    val vector =
+                        if (d.w != 0f) {
+                            vector4[0] = d.x
+                            vector4[1] = d.y
+                            vector4[2] = d.z
+                            vector4[3] = d.w
+                            vector4
+                        } else {
+                            vector3[0] = d.x
+                            vector3[1] = d.y
+                            vector3[2] = d.z
+                            vector3
+                        }
                     SensorManager.getRotationMatrixFromVector(rotationMatrix, vector)
                     _leanStream.value = LeanMath.rollFromUpVector(rotationMatrix[6], rotationMatrix[7], rotationMatrix[8])
                 }

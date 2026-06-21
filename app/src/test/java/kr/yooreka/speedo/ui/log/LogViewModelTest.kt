@@ -20,8 +20,9 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import java.io.IOException
-import java.text.SimpleDateFormat
-import java.util.Date
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -41,6 +42,8 @@ class LogViewModelTest {
             getRideTelemetryUseCase = GetRideTelemetryUseCase(repository),
             interpolateShadowSpeedUseCase = InterpolateShadowSpeedUseCase(),
             interpolateRoutePathUseCase = InterpolateRoutePathUseCase(LinearPathInterpolator()),
+            // 보간 오프로딩용 디스패처를 테스트 디스패처로 주입해 동기적으로 실행되게 한다.
+            defaultDispatcher = mainDispatcherRule.dispatcher,
         )
 
     private fun point(
@@ -75,7 +78,10 @@ class LogViewModelTest {
 
         assertFalse(state.isLoading)
         assertEquals("Sunset Run", state.title)
-        val expectedDate = SimpleDateFormat("MMM dd, yyyy HH:mm", Locale.getDefault()).format(Date(ride.startTime))
+        val expectedDate =
+            DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm", Locale.getDefault())
+                .withZone(ZoneId.systemDefault())
+                .format(Instant.ofEpochMilli(ride.startTime))
         assertEquals(expectedDate, state.date)
         assertEquals(String.format("%.1f", 12.34f), state.distance)
         assertEquals(String.format("%.0f", 37.6f), state.maxLean)

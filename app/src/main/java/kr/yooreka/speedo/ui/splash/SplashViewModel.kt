@@ -6,8 +6,8 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kr.yooreka.speedo.data.billing.BillingRepository
 import kr.yooreka.speedo.data.local.preferences.UserPreferencesRepository
+import kr.yooreka.speedo.domain.repository.BillingRepository
 import kr.yooreka.speedo.utils.AdManager
 import javax.inject.Inject
 

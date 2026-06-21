@@ -4,7 +4,6 @@ import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
-import kr.yooreka.speedo.data.billing.BillingRepository
 import kr.yooreka.speedo.data.billing.BillingRepositoryImpl
 import kr.yooreka.speedo.data.repository.RideRepositoryImpl
 import kr.yooreka.speedo.data.sensor.repository.AccelerometerRepositoryImpl
@@ -17,6 +16,7 @@ import kr.yooreka.speedo.domain.model.AccelerometerData
 import kr.yooreka.speedo.domain.model.GravityData
 import kr.yooreka.speedo.domain.model.LocationData
 import kr.yooreka.speedo.domain.model.TpmsData
+import kr.yooreka.speedo.domain.repository.BillingRepository
 import kr.yooreka.speedo.domain.repository.LeanCalibrationRepository
 import kr.yooreka.speedo.domain.repository.RideRepository
 import kr.yooreka.speedo.domain.repository.SensorRepository

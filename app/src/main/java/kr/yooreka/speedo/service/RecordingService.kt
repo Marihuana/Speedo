@@ -78,7 +78,11 @@ class RecordingService : Service() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             manager.createNotificationChannel(
-                NotificationChannel(RECORDING_CHANNEL_ID, "Ride Recording", NotificationManager.IMPORTANCE_LOW),
+                NotificationChannel(
+                    RECORDING_CHANNEL_ID,
+                    getString(R.string.notif_channel_recording),
+                    NotificationManager.IMPORTANCE_LOW,
+                ),
             )
         }
 
@@ -110,7 +114,11 @@ class RecordingService : Service() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             manager.createNotificationChannel(
-                NotificationChannel(AUTO_STOP_CHANNEL_ID, "Ride Auto-Stop", NotificationManager.IMPORTANCE_HIGH),
+                NotificationChannel(
+                    AUTO_STOP_CHANNEL_ID,
+                    getString(R.string.notif_channel_auto_stop),
+                    NotificationManager.IMPORTANCE_HIGH,
+                ),
             )
         }
 

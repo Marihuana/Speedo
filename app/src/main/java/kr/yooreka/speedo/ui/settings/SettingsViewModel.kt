@@ -10,10 +10,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import kr.yooreka.speedo.data.billing.BillingRepository
 import kr.yooreka.speedo.data.local.preferences.UserPreferencesRepository
 import kr.yooreka.speedo.data.sensor.lean.LeanDiagnosticLogger
 import kr.yooreka.speedo.domain.model.LeanMode
+import kr.yooreka.speedo.domain.repository.BillingRepository
 import kr.yooreka.speedo.domain.repository.LeanCalibrationRepository
 import java.io.File
 import javax.inject.Inject

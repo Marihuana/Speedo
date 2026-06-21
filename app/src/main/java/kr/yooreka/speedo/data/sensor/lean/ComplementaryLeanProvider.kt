@@ -40,8 +40,14 @@ class ComplementaryLeanProvider
         private val _leanStream = MutableStateFlow(LeanMath.NO_DATA)
         override val leanStream: StateFlow<Float> = _leanStream.asStateFlow()
 
+        // 센서 콜백 수집 코루틴(Default)과 start/stop(다른 스레드)에서 접근하므로 가시성 보장.
+        @Volatile
         private var fused = 0f
+
+        @Volatile
         private var lastTimestampNanos = 0L
+
+        @Volatile
         private var initialized = false
 
         override fun start() {

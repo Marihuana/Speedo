@@ -132,13 +132,15 @@ fun MainPagerScreen(
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
     var backPressedTime by remember { mutableLongStateOf(0L) }
+    // 콜백(비 Composable)에서 쓸 문자열은 미리 읽어 둔다(LocalContextGetResourceValueCall 회피).
+    val exitHint = stringResource(R.string.press_back_again_to_exit)
 
     BackHandler {
         if (System.currentTimeMillis() - backPressedTime < 2000) {
             (context as? ComponentActivity)?.finish()
         } else {
             backPressedTime = System.currentTimeMillis()
-            Toast.makeText(context, "한 번 더 누르시면 앱이 종료됩니다.", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, exitHint, Toast.LENGTH_SHORT).show()
         }
     }
 
