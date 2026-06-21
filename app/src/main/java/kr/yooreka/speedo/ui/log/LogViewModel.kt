@@ -12,6 +12,7 @@ import kr.yooreka.speedo.domain.model.RideTelemetry
 import kr.yooreka.speedo.domain.usecase.GetRideDetailUseCase
 import kr.yooreka.speedo.domain.usecase.GetRideTelemetryUseCase
 import kr.yooreka.speedo.domain.usecase.InterpolateRoutePathUseCase
+import kr.yooreka.speedo.domain.usecase.InterpolateShadowSpeedUseCase
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -36,6 +37,7 @@ class LogViewModel
         savedStateHandle: SavedStateHandle,
         private val getRideDetailUseCase: GetRideDetailUseCase,
         private val getRideTelemetryUseCase: GetRideTelemetryUseCase,
+        private val interpolateShadowSpeedUseCase: InterpolateShadowSpeedUseCase,
         private val interpolateRoutePathUseCase: InterpolateRoutePathUseCase,
     ) : ViewModel() {
         private val _uiState = MutableStateFlow(LogState())
@@ -55,8 +57,10 @@ class LogViewModel
         private fun fetchRideDetails(rideId: Long) {
             viewModelScope.launch {
                 val telemetryData = getRideTelemetryUseCase(rideId).getOrDefault(emptyList())
+                // GPS 음영(터널) 구간 속도를 진입/진출 앵커 평균속도로 역산(F-13d) → 좌표 보간 전에 적용.
+                val speedFilled = interpolateShadowSpeedUseCase(telemetryData)
                 // 시간주기(F-13b) 행의 빈 좌표를 보간해 경로 점으로 채운다(F-13c). 최고속도는 원본 기준 유지.
-                val routePoints = interpolateRoutePathUseCase(telemetryData)
+                val routePoints = interpolateRoutePathUseCase(speedFilled)
 
                 getRideDetailUseCase(rideId).fold(
                     onSuccess = { ride ->
