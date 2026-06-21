@@ -89,6 +89,25 @@ class LogViewModel
             _uiState.value = _uiState.value.copy(selectedPoint = point)
         }
 
+        /** 선택 점을 다음 경로 점으로 이동(F-13 사용성). 미선택 시 첫 점을 선택한다. */
+        fun selectNext() = moveSelection(1)
+
+        /** 선택 점을 이전 경로 점으로 이동(F-13 사용성). 미선택 시 마지막 점을 선택한다. */
+        fun selectPrevious() = moveSelection(-1)
+
+        private fun moveSelection(delta: Int) {
+            val points = _uiState.value.routePoints
+            if (points.isEmpty()) return
+            val current = _uiState.value.selectedPoint
+            val nextIndex =
+                if (current == null) {
+                    if (delta > 0) 0 else points.lastIndex
+                } else {
+                    (points.indexOf(current) + delta).coerceIn(0, points.lastIndex)
+                }
+            _uiState.value = _uiState.value.copy(selectedPoint = points[nextIndex])
+        }
+
         private fun formatDuration(millis: Long): String {
             val seconds = millis / 1000
             val hours = seconds / 3600
