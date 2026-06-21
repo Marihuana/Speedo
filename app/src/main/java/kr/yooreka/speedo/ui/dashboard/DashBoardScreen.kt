@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -40,7 +39,6 @@ import kotlinx.coroutines.flow.SharedFlow
 import kr.yooreka.speedo.R
 import kr.yooreka.speedo.ui.dashboard.components.RecordingStartDialog
 import kr.yooreka.speedo.ui.dashboard.components.SpeedometerCard
-import kr.yooreka.speedo.ui.dashboard.components.TPMSCard
 import kr.yooreka.speedo.ui.theme.BackgroundBlack
 import kr.yooreka.speedo.ui.theme.GreenSuccess
 import kr.yooreka.speedo.ui.theme.NeonGreen
@@ -90,23 +88,7 @@ fun DashBoardScreen(
                         .fillMaxWidth()
                         .weight(1f),
             )
-            if (state.showTpmsData) {
-                Spacer(modifier = Modifier.height(20.dp))
-                TPMSCard(
-                    rearPressure = state.rearPressure,
-                    frontPressure = state.frontPressure,
-                    pressureUnit = state.pressureUnit,
-                    rearColor = state.rearPressureColor,
-                    frontColor = state.frontPressureColor,
-                    rearTemp = state.rearTemp,
-                    frontTemp = state.frontTemp,
-                    rearBat = state.rearBat,
-                    frontBat = state.frontBat,
-                    modifier =
-                        Modifier
-                            .fillMaxWidth(),
-                )
-            }
+            // TPMS 카드는 이번 버전 비활성화(F-07)로 노출하지 않는다(백엔드/모델은 보존).
         }
 
         if (showStartDialog) {
