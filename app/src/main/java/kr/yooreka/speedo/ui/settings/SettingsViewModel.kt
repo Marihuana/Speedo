@@ -19,11 +19,8 @@ import java.io.File
 import javax.inject.Inject
 
 data class SettingsState(
-    val showTpmsData: Boolean = false,
     val speedUnit: String = "KM/H",
-    val pressureUnit: String = "PSI",
     val isCalibrating: Boolean = false,
-    val hasSavedTpmsIds: Boolean = false,
     val isAdRemoved: Boolean = false,
     val leanMeasurementMode: LeanMode = LeanMode.DEFAULT,
 )
@@ -46,11 +43,8 @@ class SettingsViewModel
                 billingRepository.isAdRemoved,
             ) { prefs, calibrating, isAdRemoved ->
                 SettingsState(
-                    showTpmsData = prefs.showTpmsData,
                     speedUnit = prefs.speedUnit,
-                    pressureUnit = prefs.pressureUnit,
                     isCalibrating = calibrating,
-                    hasSavedTpmsIds = prefs.frontTpmsId.isNotBlank() && prefs.rearTpmsId.isNotBlank(),
                     isAdRemoved = isAdRemoved,
                     leanMeasurementMode = LeanMode.fromName(prefs.leanMeasurementMode),
                 )
@@ -64,21 +58,9 @@ class SettingsViewModel
             billingRepository.launchBillingFlow(activity)
         }
 
-        fun toggleTpms(enabled: Boolean) {
-            viewModelScope.launch {
-                userPreferencesRepository.updateShowTpmsData(enabled)
-            }
-        }
-
         fun updateSpeedUnit(unit: String) {
             viewModelScope.launch {
                 userPreferencesRepository.updateSpeedUnit(unit)
-            }
-        }
-
-        fun updatePressureUnit(unit: String) {
-            viewModelScope.launch {
-                userPreferencesRepository.updatePressureUnit(unit)
             }
         }
 
@@ -91,22 +73,6 @@ class SettingsViewModel
 
         /** 저장된 lean 진단 CSV 파일 목록(Export 메일 전송용). 기록은 주행 측정 중 자동 수행된다. */
         fun diagnosticCsvFiles(): List<File> = leanDiagnosticLogger.logFiles()
-
-        fun saveTpmsIds(
-            frontId: String,
-            rearId: String,
-        ) {
-            viewModelScope.launch {
-                userPreferencesRepository.updateTpmsIds(frontId, rearId)
-            }
-        }
-
-        /** 저장된 TPMS 센서 ID(앞/뒤)를 초기화한다. */
-        fun resetTpmsIds() {
-            viewModelScope.launch {
-                userPreferencesRepository.resetTpmsIds()
-            }
-        }
 
         /** 영점 보정값을 초기화한다(offset = 0). */
         fun resetCalibration() {

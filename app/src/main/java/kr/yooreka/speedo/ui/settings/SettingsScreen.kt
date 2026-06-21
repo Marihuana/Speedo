@@ -1,15 +1,7 @@
 package kr.yooreka.speedo.ui.settings
 
-import android.Manifest
 import android.content.Context
-import android.content.pm.PackageManager
-import android.os.Build
 import android.widget.Toast
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -39,13 +31,9 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -58,15 +46,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kr.yooreka.speedo.R
 import kr.yooreka.speedo.domain.model.LeanMode
 import kr.yooreka.speedo.ui.components.BannerAd
-import kr.yooreka.speedo.ui.settings.components.TpmsConnectionDialog
-import kr.yooreka.speedo.ui.settings.components.TpmsDisconnectDialog
-import kr.yooreka.speedo.ui.settings.components.TpmsResetDialog
 import kr.yooreka.speedo.ui.theme.BackgroundBlack
 import kr.yooreka.speedo.ui.theme.NeonGreen
 import kr.yooreka.speedo.ui.theme.SlateDark
@@ -79,51 +63,16 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     // 콜백(비 Composable 람다)에서 사용하기 위해 문자열 리소스를 미리 읽어 둔다.
-    val blePermissionRequiredMessage = stringResource(R.string.ble_permission_required)
-    val tpmsIdsResetMessage = stringResource(R.string.tpms_ids_reset)
     val calibrationResetMessage = stringResource(R.string.calibration_reset)
 
-    // TPMS(BLE) 권한 요청 런처. 허용되면 보류 중이던 동작(연결 다이얼로그 표시)을 실행한다.
-    var pendingTpmsAction by remember { mutableStateOf<(() -> Unit)?>(null) }
-    val blePermissionLauncher =
-        rememberLauncherForActivityResult(
-            contract = ActivityResultContracts.RequestMultiplePermissions(),
-        ) { grants ->
-            if (grants.values.all { it }) {
-                pendingTpmsAction?.invoke()
-            } else {
-                Toast.makeText(context, blePermissionRequiredMessage, Toast.LENGTH_SHORT).show()
-            }
-            pendingTpmsAction = null
-        }
-
     SettingsContent(
-        showTpmsData = state.showTpmsData,
-        onShowTpmsDataChange = { viewModel.toggleTpms(it) },
-        onSaveTpmsIds = { front, rear -> viewModel.saveTpmsIds(front, rear) },
         speedUnit = state.speedUnit,
         onSpeedUnitChange = { viewModel.updateSpeedUnit(it) },
-        pressureUnit = state.pressureUnit,
-        onPressureUnitChange = { viewModel.updatePressureUnit(it) },
-        onResetTpmsIds = {
-            viewModel.resetTpmsIds()
-            Toast.makeText(context, tpmsIdsResetMessage, Toast.LENGTH_SHORT).show()
-        },
-        hasSavedTpmsIds = state.hasSavedTpmsIds,
-        onEnableTpms = { viewModel.toggleTpms(true) },
         isCalibrating = state.isCalibrating,
         onCalibrateClick = { viewModel.calibrate() },
         onResetCalibration = {
             viewModel.resetCalibration()
             Toast.makeText(context, calibrationResetMessage, Toast.LENGTH_SHORT).show()
-        },
-        onRequestEnableTpms = { onGranted ->
-            if (hasBlePermissions(context)) {
-                onGranted()
-            } else {
-                pendingTpmsAction = onGranted
-                blePermissionLauncher.launch(requiredBlePermissions())
-            }
         },
         isAdRemoved = state.isAdRemoved,
         onPurchaseRemoveAds = {
@@ -166,76 +115,19 @@ private fun shareDiagnosticCsv(
 /** 진단 CSV Export 수신자(개발자). */
 private const val DIAGNOSTIC_EMAIL = "bracket0723@gmail.com"
 
-/** API 레벨에 맞는 BLE 런타임 권한 목록. */
-private fun requiredBlePermissions(): Array<String> =
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-        arrayOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT)
-    } else {
-        // API 31 미만에서는 BLE 스캔에 위치 권한이 필요하다.
-        arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)
-    }
-
-private fun hasBlePermissions(context: Context): Boolean =
-    requiredBlePermissions().all {
-        ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
-    }
-
 @Composable
 fun SettingsContent(
-    showTpmsData: Boolean,
-    onShowTpmsDataChange: (Boolean) -> Unit,
-    onSaveTpmsIds: (String, String) -> Unit,
     speedUnit: String,
     onSpeedUnitChange: (String) -> Unit,
-    pressureUnit: String,
-    onPressureUnitChange: (String) -> Unit,
-    onResetTpmsIds: () -> Unit = {},
-    hasSavedTpmsIds: Boolean = false,
-    onEnableTpms: () -> Unit = {},
     isCalibrating: Boolean = false,
     onCalibrateClick: () -> Unit = {},
     onResetCalibration: () -> Unit = {},
-    onRequestEnableTpms: (onGranted: () -> Unit) -> Unit = { it() },
     isAdRemoved: Boolean = false,
     onPurchaseRemoveAds: () -> Unit = {},
     selectedLeanMode: LeanMode = LeanMode.DEFAULT,
     onLeanModeChange: (LeanMode) -> Unit = {},
     onExportDiagnostics: () -> Unit = {},
 ) {
-    var showConnectionDialog by remember { mutableStateOf(false) }
-    var showDisconnectDialog by remember { mutableStateOf(false) }
-    var showResetDialog by remember { mutableStateOf(false) }
-
-    if (showResetDialog) {
-        TpmsResetDialog(
-            onDismiss = { showResetDialog = false },
-            onConfirm = {
-                showResetDialog = false
-                onResetTpmsIds()
-            },
-        )
-    }
-
-    if (showConnectionDialog) {
-        TpmsConnectionDialog(
-            onDismiss = { showConnectionDialog = false },
-            onConfirm = { frontId, rearId ->
-                showConnectionDialog = false
-                onSaveTpmsIds(frontId, rearId)
-            },
-        )
-    }
-
-    if (showDisconnectDialog) {
-        TpmsDisconnectDialog(
-            onDismiss = { showDisconnectDialog = false },
-            onConfirm = {
-                showDisconnectDialog = false
-                onShowTpmsDataChange(false)
-            },
-        )
-    }
-
     Column(
         modifier =
             Modifier
@@ -254,21 +146,8 @@ fun SettingsContent(
             // Display Section
             SettingsSectionHeader(title = "Display", iconRes = kr.yooreka.speedo.R.drawable.ic_monitor)
             DisplayCard(
-                showTpmsData = showTpmsData,
-                onShowTpmsDataChange = { isChecked ->
-                    if (isChecked) {
-                        onRequestEnableTpms {
-                            if (hasSavedTpmsIds) onEnableTpms() else showConnectionDialog = true
-                        }
-                    } else {
-                        showDisconnectDialog = true
-                    }
-                },
-                onResetTpmsIds = { showResetDialog = true },
                 speedUnit = speedUnit,
                 onSpeedUnitChange = onSpeedUnitChange,
-                pressureUnit = pressureUnit,
-                onPressureUnitChange = onPressureUnitChange,
             )
 
             Spacer(modifier = Modifier.height(32.dp))
@@ -404,13 +283,8 @@ fun PremiumCard(onPurchaseClick: () -> Unit) {
 
 @Composable
 fun DisplayCard(
-    showTpmsData: Boolean,
-    onShowTpmsDataChange: (Boolean) -> Unit,
-    onResetTpmsIds: () -> Unit,
     speedUnit: String,
     onSpeedUnitChange: (String) -> Unit,
-    pressureUnit: String,
-    onPressureUnitChange: (String) -> Unit,
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -419,94 +293,12 @@ fun DisplayCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 10.dp),
     ) {
         Column(modifier = Modifier.padding(24.dp)) {
-            // TPMS Toggle Row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(modifier = Modifier.weight(1f).padding(end = 16.dp)) {
-                    Text(
-                        text = "SHOW TPMS DATA",
-                        color = Color.White,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Black,
-                        letterSpacing = (-0.71).sp,
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Display tire pressure on dashboard",
-                        color = SlateText,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.12.sp,
-                        lineHeight = 15.sp,
-                        modifier = Modifier.fillMaxWidth(0.9f),
-                    )
-                }
-                Switch(
-                    checked = showTpmsData,
-                    onCheckedChange = onShowTpmsDataChange,
-                    colors =
-                        SwitchDefaults.colors(
-                            checkedThumbColor = Color.Black,
-                            checkedTrackColor = NeonGreen,
-                            uncheckedThumbColor = Color.Black,
-                            uncheckedTrackColor = Color(0xFF314158),
-                            uncheckedBorderColor = Color.Transparent,
-                        ),
-                )
-            }
-
-            AnimatedVisibility(
-                visible = showTpmsData,
-                enter = expandVertically(),
-                exit = shrinkVertically(),
-            ) {
-                Column {
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Button(
-                        onClick = onResetTpmsIds,
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .height(41.dp),
-                        shape = RoundedCornerShape(14.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1D293D)),
-                        border = BorderStroke(0.6.dp, Color(0xFF314158)),
-                        contentPadding = PaddingValues(0.dp),
-                    ) {
-                        Text(
-                            text = "TPMS SENSOR 정보 초기화",
-                            color = Color(0xFFCAD5E2),
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 1.2.sp,
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-            HorizontalDivider(color = Color(0xFF314158), thickness = 1.dp)
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Speed Unit Selector
+            // 속도 단위 선택. TPMS(압력) 관련 항목은 이번 버전 비활성화로 제외.
             UnitSelector(
                 label = "Speed Unit",
                 options = listOf("KM/H", "MPH"),
                 selectedOption = speedUnit,
                 onOptionSelected = onSpeedUnitChange,
-            )
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Pressure Unit Selector
-            UnitSelector(
-                label = "Pressure Unit",
-                options = listOf("PSI", "BAR"),
-                selectedOption = pressureUnit,
-                onOptionSelected = onPressureUnitChange,
             )
         }
     }
@@ -794,54 +586,26 @@ fun UnitSelector(
 }
 
 // Previews
-@Preview(showBackground = true, name = "Display Card - Off")
+@Preview(showBackground = true, name = "Display Card")
 @Composable
-fun DisplayCardOffPreview() {
+fun DisplayCardPreview() {
     SpeedoTheme {
         Surface(color = BackgroundBlack, modifier = Modifier.padding(16.dp)) {
             DisplayCard(
-                showTpmsData = false,
-                onShowTpmsDataChange = {},
-                onResetTpmsIds = {},
                 speedUnit = "KM/H",
                 onSpeedUnitChange = {},
-                pressureUnit = "PSI",
-                onPressureUnitChange = {},
             )
         }
     }
 }
 
-@Preview(showBackground = true, name = "Display Card - On")
-@Composable
-fun DisplayCardOnPreview() {
-    SpeedoTheme {
-        Surface(color = BackgroundBlack, modifier = Modifier.padding(16.dp)) {
-            DisplayCard(
-                showTpmsData = true,
-                onShowTpmsDataChange = {},
-                onResetTpmsIds = {},
-                speedUnit = "KM/H",
-                onSpeedUnitChange = {},
-                pressureUnit = "PSI",
-                onPressureUnitChange = {},
-            )
-        }
-    }
-}
-
-@Preview(showBackground = true, name = "Settings - Full Screen (All On)")
+@Preview(showBackground = true, name = "Settings - Full Screen")
 @Composable
 fun SettingsScreenFullPreview() {
     SpeedoTheme {
         SettingsContent(
-            showTpmsData = true,
-            onShowTpmsDataChange = {},
-            onSaveTpmsIds = { _, _ -> },
             speedUnit = "KM/H",
             onSpeedUnitChange = {},
-            pressureUnit = "PSI",
-            onPressureUnitChange = {},
         )
     }
 }
