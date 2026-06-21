@@ -1,6 +1,7 @@
 package kr.yooreka.speedo.ui.splash
 
 import android.Manifest
+import android.app.Activity
 import android.content.pm.PackageManager
 import android.os.Build
 import android.window.SplashScreen
@@ -29,9 +30,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -46,6 +49,9 @@ import kr.yooreka.speedo.ui.theme.SlateSubText
 fun SplashScreen(onTimeout: () -> Unit) {
     val context = LocalContext.current
     var permissionsGranted by remember { mutableStateOf(false) }
+    // 위치(FINE/COARSE)는 핵심 권한: 거부 시 안내 후 앱 종료(F-06/§4.6).
+    // 알림(POST_NOTIFICATIONS)은 게이트하지 않는다(옵션 A — 알림 없이도 핵심 동작 가능).
+    var locationDenied by remember { mutableStateOf(false) }
 
     val permissionsToRequest =
         mutableListOf(
@@ -61,18 +67,22 @@ fun SplashScreen(onTimeout: () -> Unit) {
         rememberLauncherForActivityResult(
             contract = ActivityResultContracts.RequestMultiplePermissions(),
         ) { results ->
-            // We proceed regardless of whether all were granted,
-            // but we can check if at least coarse location is granted
-            permissionsGranted = true
+            val locationGranted =
+                results[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+                    results[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+            // 위치만 게이트: 알림 거부는 진행을 막지 않는다.
+            if (locationGranted) permissionsGranted = true else locationDenied = true
         }
 
     LaunchedEffect(Unit) {
-        val allGranted =
-            permissionsToRequest.all {
-                ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
-            }
+        val locationAlreadyGranted =
+            ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) ==
+                PackageManager.PERMISSION_GRANTED ||
+                ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) ==
+                PackageManager.PERMISSION_GRANTED
 
-        if (allGranted) {
+        if (locationAlreadyGranted) {
+            // 위치가 이미 허용된 경우 진행(알림은 재요청하지 않는다).
             permissionsGranted = true
         } else {
             launcher.launch(permissionsToRequest.toTypedArray())
@@ -83,6 +93,14 @@ fun SplashScreen(onTimeout: () -> Unit) {
         if (permissionsGranted) {
             delay(2000) // 2 seconds splash after permission decision
             onTimeout()
+        }
+    }
+
+    // 위치 거부: 안내를 잠시 보여준 뒤 앱을 종료한다.
+    LaunchedEffect(locationDenied) {
+        if (locationDenied) {
+            delay(2800)
+            (context as? Activity)?.finish()
         }
     }
 
@@ -133,6 +151,20 @@ fun SplashScreen(onTimeout: () -> Unit) {
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 4.sp,
             )
+
+            // 위치 권한 거부 안내(거부 시에만 표시 후 종료).
+            if (locationDenied) {
+                Spacer(modifier = Modifier.height(28.dp))
+                Text(
+                    text = "위치 권한이 있어야 앱을 사용할 수 있습니다.\n권한을 허용한 뒤 다시 실행해 주세요.",
+                    color = Color(0xFFFB2C36),
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                    lineHeight = 18.sp,
+                    modifier = Modifier.padding(horizontal = 40.dp),
+                )
+            }
         }
 
         // Bottom Dot
