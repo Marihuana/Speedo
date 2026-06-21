@@ -11,6 +11,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kr.yooreka.speedo.domain.model.LeanMode
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -23,6 +24,7 @@ data class UserPreferences(
     val frontTpmsId: String,
     val rearTpmsId: String,
     val launchCount: Int,
+    val leanMeasurementMode: String,
 )
 
 @Singleton
@@ -38,6 +40,7 @@ class UserPreferencesRepository
             val FRONT_TPMS_ID = stringPreferencesKey("front_tpms_id")
             val REAR_TPMS_ID = stringPreferencesKey("rear_tpms_id")
             val LAUNCH_COUNT = intPreferencesKey("launch_count")
+            val LEAN_MEASUREMENT_MODE = stringPreferencesKey("lean_measurement_mode")
         }
 
         val userPreferencesFlow: Flow<UserPreferences> =
@@ -49,6 +52,8 @@ class UserPreferencesRepository
                     val frontTpmsId = preferences[PreferencesKeys.FRONT_TPMS_ID] ?: ""
                     val rearTpmsId = preferences[PreferencesKeys.REAR_TPMS_ID] ?: ""
                     val launchCount = preferences[PreferencesKeys.LAUNCH_COUNT] ?: 0
+                    val leanMeasurementMode =
+                        preferences[PreferencesKeys.LEAN_MEASUREMENT_MODE] ?: LeanMode.DEFAULT.name
 
                     UserPreferences(
                         showTpmsData = showTpmsData,
@@ -57,8 +62,14 @@ class UserPreferencesRepository
                         frontTpmsId = frontTpmsId,
                         rearTpmsId = rearTpmsId,
                         launchCount = launchCount,
+                        leanMeasurementMode = leanMeasurementMode,
                     )
                 }
+
+        /** lean 측정 방식(F-03). 선택 전략을 런타임에 교체하기 위한 전용 스트림. */
+        val leanMeasurementModeFlow: Flow<LeanMode> =
+            context.dataStore.data
+                .map { LeanMode.fromName(it[PreferencesKeys.LEAN_MEASUREMENT_MODE]) }
 
         suspend fun incrementLaunchCount() {
             context.dataStore.edit { preferences ->
@@ -102,6 +113,12 @@ class UserPreferencesRepository
         suspend fun updatePressureUnit(unit: String) {
             context.dataStore.edit { preferences ->
                 preferences[PreferencesKeys.PRESSURE_UNIT] = unit
+            }
+        }
+
+        suspend fun updateLeanMeasurementMode(mode: LeanMode) {
+            context.dataStore.edit { preferences ->
+                preferences[PreferencesKeys.LEAN_MEASUREMENT_MODE] = mode.name
             }
         }
     }

@@ -25,15 +25,28 @@ class AccelerometerSensor
         private val _dataFlow = MutableStateFlow(AccelerometerData())
         override val dataFlow: StateFlow<AccelerometerData> = _dataFlow.asStateFlow()
 
+        // 가속도계는 브레이크 감지(텔레메트리)와 lean 측정 전략(AccelTilt/Complementary)이 공유한다.
+        // 다중 소유자가 독립적으로 start/stop 해도 안전하도록 참조 카운트로 등록/해제를 관리한다.
+        private var refCount = 0
+
+        @Synchronized
         override fun start() {
             sensor?.let {
-                sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME)
+                if (refCount == 0) {
+                    sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME)
+                }
+                refCount++
             }
         }
 
+        @Synchronized
         override fun stop() {
-            sensorManager.unregisterListener(this)
-            _dataFlow.value = AccelerometerData()
+            if (refCount == 0) return
+            refCount--
+            if (refCount == 0) {
+                sensorManager.unregisterListener(this)
+                _dataFlow.value = AccelerometerData()
+            }
         }
 
         override fun onSensorChanged(event: SensorEvent) {

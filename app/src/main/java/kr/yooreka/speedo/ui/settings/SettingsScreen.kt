@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -61,6 +62,7 @@ import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kr.yooreka.speedo.R
+import kr.yooreka.speedo.domain.model.LeanMode
 import kr.yooreka.speedo.ui.components.BannerAd
 import kr.yooreka.speedo.ui.settings.components.TpmsConnectionDialog
 import kr.yooreka.speedo.ui.settings.components.TpmsDisconnectDialog
@@ -129,8 +131,40 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                 viewModel.purchaseRemoveAds(activity)
             }
         },
+        selectedLeanMode = state.leanMeasurementMode,
+        onLeanModeChange = { viewModel.updateLeanMeasurementMode(it) },
+        onExportDiagnostics = { shareDiagnosticCsv(context, viewModel.diagnosticCsvFiles()) },
     )
 }
+
+/** 진단 CSV(F-03)를 메일로 전송한다. 파일이 없으면 안내만 표시. */
+private fun shareDiagnosticCsv(
+    context: Context,
+    files: List<java.io.File>,
+) {
+    if (files.isEmpty()) {
+        Toast.makeText(context, "전송할 진단 데이터가 없습니다. 먼저 주행을 기록하세요.", Toast.LENGTH_SHORT).show()
+        return
+    }
+    val authority = "${context.packageName}.fileprovider"
+    val uris =
+        ArrayList(
+            files.map { androidx.core.content.FileProvider.getUriForFile(context, authority, it) },
+        )
+    val intent =
+        android.content.Intent(android.content.Intent.ACTION_SEND_MULTIPLE).apply {
+            type = "text/csv"
+            putExtra(android.content.Intent.EXTRA_EMAIL, arrayOf(DIAGNOSTIC_EMAIL))
+            putExtra(android.content.Intent.EXTRA_SUBJECT, "Speedo lean diagnostics")
+            putExtra(android.content.Intent.EXTRA_TEXT, "lean 측정 진단 CSV(${files.size}개)를 첨부합니다.")
+            putParcelableArrayListExtra(android.content.Intent.EXTRA_STREAM, uris)
+            addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+    context.startActivity(android.content.Intent.createChooser(intent, "Export diagnostics"))
+}
+
+/** 진단 CSV Export 수신자(개발자). */
+private const val DIAGNOSTIC_EMAIL = "bracket0723@gmail.com"
 
 /** API 레벨에 맞는 BLE 런타임 권한 목록. */
 private fun requiredBlePermissions(): Array<String> =
@@ -164,6 +198,9 @@ fun SettingsContent(
     onRequestEnableTpms: (onGranted: () -> Unit) -> Unit = { it() },
     isAdRemoved: Boolean = false,
     onPurchaseRemoveAds: () -> Unit = {},
+    selectedLeanMode: LeanMode = LeanMode.DEFAULT,
+    onLeanModeChange: (LeanMode) -> Unit = {},
+    onExportDiagnostics: () -> Unit = {},
 ) {
     var showConnectionDialog by remember { mutableStateOf(false) }
     var showDisconnectDialog by remember { mutableStateOf(false) }
@@ -243,6 +280,11 @@ fun SettingsContent(
                     isCalibrating = isCalibrating,
                     onCalibrateClick = onCalibrateClick,
                     onResetClick = onResetCalibration,
+                )
+                LeanMeasurementCard(
+                    selectedMode = selectedLeanMode,
+                    onModeSelected = onLeanModeChange,
+                    onExportDiagnostics = onExportDiagnostics,
                 )
             }
 
@@ -527,6 +569,125 @@ fun CalibrationCard(
                     fontWeight = FontWeight.Black,
                     fontSize = 14.sp,
                     letterSpacing = 1.25.sp,
+                )
+            }
+        }
+    }
+}
+
+/** 측정 방식(F-03) 표시 라벨. 실측 비교용 5종. */
+private fun leanModeLabel(mode: LeanMode): String =
+    when (mode) {
+        LeanMode.GRAVITY_TILT -> "GRAVITY (기본)"
+        LeanMode.ACCEL_TILT -> "ACCELEROMETER"
+        LeanMode.ROTATION_VECTOR -> "ROTATION VECTOR"
+        LeanMode.GAME_ROTATION_VECTOR -> "GAME ROTATION VECTOR"
+        LeanMode.COMPLEMENTARY -> "COMPLEMENTARY (자이로 융합)"
+    }
+
+/**
+ * lean 측정 전략 선택 카드(F-03). 활성 전략을 즉시 교체하며, 실주행 비교 후 가장 정확한 방식을
+ * 채택하기 위한 비교 도구다.
+ */
+@Composable
+fun LeanMeasurementCard(
+    selectedMode: LeanMode,
+    onModeSelected: (LeanMode) -> Unit,
+    onExportDiagnostics: () -> Unit = {},
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = SlateDark),
+        elevation = CardDefaults.cardElevation(defaultElevation = 10.dp),
+    ) {
+        Column(modifier = Modifier.padding(24.dp)) {
+            Text(
+                text = "Lean Measurement",
+                color = Color.White,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Black,
+                letterSpacing = (-0.71).sp,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Compare strategies, then keep the most accurate",
+                color = SlateText,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.12.sp,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+
+            LeanMode.entries.forEach { mode ->
+                val isSelected = mode == selectedMode
+                Row(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .clickable { onModeSelected(mode) }
+                            .padding(vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(
+                        modifier =
+                            Modifier
+                                .size(18.dp)
+                                .background(
+                                    if (isSelected) NeonGreen else Color.Transparent,
+                                    CircleShape,
+                                )
+                                .border(
+                                    1.5.dp,
+                                    if (isSelected) NeonGreen else Color(0xFF45556C),
+                                    CircleShape,
+                                ),
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = leanModeLabel(mode),
+                        color = if (isSelected) Color.White else SlateText,
+                        fontSize = 13.sp,
+                        fontWeight = if (isSelected) FontWeight.Black else FontWeight.Bold,
+                        letterSpacing = 0.2.sp,
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+            HorizontalDivider(color = Color(0xFF314158), thickness = 1.dp)
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // 진단 CSV는 주행 기록 중 자동 저장되며, 아래 버튼으로 개발자에게 메일 전송한다.
+            Text(
+                text = "Diagnostic logs are saved automatically while recording a ride.",
+                color = SlateText,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.12.sp,
+                lineHeight = 15.sp,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            Button(
+                onClick = onExportDiagnostics,
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1D293D)),
+                border = BorderStroke(0.6.dp, Color(0xFF314158)),
+                contentPadding = PaddingValues(0.dp),
+            ) {
+                Text(
+                    text = "EXPORT MEASUREMENTS",
+                    color = Color(0xFFCAD5E2),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.2.sp,
                 )
             }
         }
