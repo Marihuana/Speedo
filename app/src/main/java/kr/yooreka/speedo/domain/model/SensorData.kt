@@ -49,6 +49,29 @@ data class LocationData(
 )
 
 /**
+ * 회전 벡터 센서 데이터 모델(TYPE_ROTATION_VECTOR / TYPE_GAME_ROTATION_VECTOR 공용).
+ * 단위 쿼터니언 성분(x,y,z,w). roll 산출은 [kr.yooreka.speedo.domain.repository.LeanProvider] 전략에서 수행한다.
+ */
+data class RotationVectorData(
+    val x: Float = 0f,
+    val y: Float = 0f,
+    val z: Float = 0f,
+    val w: Float = 0f,
+    val hasData: Boolean = false,
+)
+
+/**
+ * 자이로스코프 데이터 모델. 각 축 각속도(rad/s)와 센서 이벤트 타임스탬프(ns, 적분 dt 계산용).
+ */
+data class GyroscopeData(
+    val x: Float = 0f,
+    val y: Float = 0f,
+    val z: Float = 0f,
+    /** SensorEvent.timestamp (나노초, 단조 증가). 0이면 데이터 없음. */
+    val timestampNanos: Long = 0L,
+)
+
+/**
  * 타이어 공기압(TPMS) 데이터 모델
  */
 data class TpmsData(

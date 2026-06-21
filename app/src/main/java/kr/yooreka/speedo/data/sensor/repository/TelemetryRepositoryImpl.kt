@@ -24,12 +24,13 @@ import kr.yooreka.speedo.data.local.dao.RideDao
 import kr.yooreka.speedo.data.local.dao.TelemetryDao
 import kr.yooreka.speedo.data.local.entity.RideEntity
 import kr.yooreka.speedo.data.local.entity.TelemetryEntity
+import kr.yooreka.speedo.data.sensor.lean.LeanDiagnosticLogger
 import kr.yooreka.speedo.domain.model.AccelerometerData
 import kr.yooreka.speedo.domain.model.BrakeDetector
 import kr.yooreka.speedo.domain.model.BrakeDetector.BrakeState
-import kr.yooreka.speedo.domain.model.GravityData
 import kr.yooreka.speedo.domain.model.LocationData
 import kr.yooreka.speedo.domain.repository.LeanCalibrationRepository
+import kr.yooreka.speedo.domain.repository.LeanMeasurement
 import kr.yooreka.speedo.domain.repository.SensorRepository
 import kr.yooreka.speedo.domain.repository.TelemetryRepository
 import kr.yooreka.speedo.service.RecordingService
@@ -47,11 +48,12 @@ class TelemetryRepositoryImpl
     constructor(
         @ApplicationContext private val context: Context,
         private val accelRepo: SensorRepository<AccelerometerData>,
-        private val gravityRepo: SensorRepository<GravityData>,
+        private val leanMeasurement: LeanMeasurement,
         private val locationRepo: SensorRepository<LocationData>,
         private val telemetryDao: TelemetryDao,
         private val rideDao: RideDao,
         private val calibrationRepository: LeanCalibrationRepository,
+        private val leanDiagnosticLogger: LeanDiagnosticLogger,
     ) : TelemetryRepository {
         private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         private val buffer = mutableListOf<TelemetryEntity>()
@@ -107,14 +109,14 @@ class TelemetryRepositoryImpl
 
         override fun startTelemetry() {
             accelRepo.start()
-            gravityRepo.start()
+            leanMeasurement.start()
             locationRepo.start()
         }
 
         override fun stopTelemetry() {
             stopRecording()
             accelRepo.stop()
-            gravityRepo.stop()
+            leanMeasurement.stop()
             locationRepo.stop()
         }
 
@@ -129,6 +131,9 @@ class TelemetryRepositoryImpl
                     action = RecordingService.ACTION_START_RECORDING
                 }
             ContextCompat.startForegroundService(context, serviceIntent)
+
+            // 주행 기록 중에만 lean 진단 CSV를 기록한다(F-03). 기록 시작 시 새 세션 파일 생성.
+            leanDiagnosticLogger.start()
 
             repositoryScope.launch {
                 val now = System.currentTimeMillis()
@@ -148,11 +153,12 @@ class TelemetryRepositoryImpl
                 distanceTracker.reset()
                 _isRecording.value = true
 
-                // 중력 센서: 구간 내 부호 보존 최대 기울기와 세션 최대 기울기를 누적한다(행 생성과 무관).
+                // 활성 측정 전략(F-03): 구간 내 부호 보존 최대 기울기와 세션 최대 기울기를 누적한다(행 생성과 무관).
                 val aggregatorJob =
                     launch {
-                        gravityRepo.dataStream.collect { gravity ->
-                            val signedRoll = gravity.calibratedRoll(calibrationRepository.offsetDegrees.value)
+                        leanMeasurement.leanStream.collect { lean ->
+                            if (lean.isNaN()) return@collect
+                            val signedRoll = lean - calibrationRepository.offsetDegrees.value
                             val magnitude = abs(signedRoll)
                             // 구간 내 절대값이 가장 큰 기울기를 '부호까지' 보존해 저장한다(좌/우 방향 유지).
                             maxLeanInInterval.getAndUpdate { current ->
@@ -242,6 +248,9 @@ class TelemetryRepositoryImpl
             recordingJob?.cancel()
             recordingJob = null
             currentRideId = -1
+
+            // 진단 CSV 세션 마감(파일 flush/close).
+            leanDiagnosticLogger.stop()
 
             repositoryScope.launch {
                 flushBuffer()

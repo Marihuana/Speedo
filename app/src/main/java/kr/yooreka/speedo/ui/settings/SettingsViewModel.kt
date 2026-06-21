@@ -12,7 +12,10 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kr.yooreka.speedo.data.billing.BillingRepository
 import kr.yooreka.speedo.data.local.preferences.UserPreferencesRepository
+import kr.yooreka.speedo.data.sensor.lean.LeanDiagnosticLogger
+import kr.yooreka.speedo.domain.model.LeanMode
 import kr.yooreka.speedo.domain.repository.LeanCalibrationRepository
+import java.io.File
 import javax.inject.Inject
 
 data class SettingsState(
@@ -22,6 +25,7 @@ data class SettingsState(
     val isCalibrating: Boolean = false,
     val hasSavedTpmsIds: Boolean = false,
     val isAdRemoved: Boolean = false,
+    val leanMeasurementMode: LeanMode = LeanMode.DEFAULT,
 )
 
 @HiltViewModel
@@ -31,6 +35,7 @@ class SettingsViewModel
         private val userPreferencesRepository: UserPreferencesRepository,
         private val calibrationRepository: LeanCalibrationRepository,
         private val billingRepository: BillingRepository,
+        private val leanDiagnosticLogger: LeanDiagnosticLogger,
     ) : ViewModel() {
         private val isCalibratingFlow = MutableStateFlow(false)
 
@@ -47,6 +52,7 @@ class SettingsViewModel
                     isCalibrating = calibrating,
                     hasSavedTpmsIds = prefs.frontTpmsId.isNotBlank() && prefs.rearTpmsId.isNotBlank(),
                     isAdRemoved = isAdRemoved,
+                    leanMeasurementMode = LeanMode.fromName(prefs.leanMeasurementMode),
                 )
             }.stateIn(
                 scope = viewModelScope,
@@ -75,6 +81,16 @@ class SettingsViewModel
                 userPreferencesRepository.updatePressureUnit(unit)
             }
         }
+
+        /** lean 측정 방식(F-03)을 변경한다. 활성 전략이 즉시 교체된다. */
+        fun updateLeanMeasurementMode(mode: LeanMode) {
+            viewModelScope.launch {
+                userPreferencesRepository.updateLeanMeasurementMode(mode)
+            }
+        }
+
+        /** 저장된 lean 진단 CSV 파일 목록(Export 메일 전송용). 기록은 주행 측정 중 자동 수행된다. */
+        fun diagnosticCsvFiles(): List<File> = leanDiagnosticLogger.logFiles()
 
         fun saveTpmsIds(
             frontId: String,
