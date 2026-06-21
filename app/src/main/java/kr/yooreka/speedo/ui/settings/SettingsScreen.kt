@@ -96,7 +96,7 @@ private fun shareDiagnosticCsv(
     files: List<java.io.File>,
 ) {
     if (files.isEmpty()) {
-        Toast.makeText(context, "전송할 진단 데이터가 없습니다. 먼저 주행을 기록하세요.", Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, context.getString(R.string.diagnostic_no_data), Toast.LENGTH_SHORT).show()
         return
     }
     val authority = "${context.packageName}.fileprovider"
@@ -108,12 +108,12 @@ private fun shareDiagnosticCsv(
         android.content.Intent(android.content.Intent.ACTION_SEND_MULTIPLE).apply {
             type = "text/csv"
             putExtra(android.content.Intent.EXTRA_EMAIL, arrayOf(DIAGNOSTIC_EMAIL))
-            putExtra(android.content.Intent.EXTRA_SUBJECT, "Speedo lean diagnostics")
-            putExtra(android.content.Intent.EXTRA_TEXT, "lean 측정 진단 CSV(${files.size}개)를 첨부합니다.")
+            putExtra(android.content.Intent.EXTRA_SUBJECT, context.getString(R.string.diagnostic_email_subject))
+            putExtra(android.content.Intent.EXTRA_TEXT, context.getString(R.string.diagnostic_email_body, files.size))
             putParcelableArrayListExtra(android.content.Intent.EXTRA_STREAM, uris)
             addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
-    context.startActivity(android.content.Intent.createChooser(intent, "Export diagnostics"))
+    context.startActivity(android.content.Intent.createChooser(intent, context.getString(R.string.diagnostic_chooser_title)))
 }
 
 /** 진단 CSV Export 수신자(개발자). */
@@ -150,7 +150,7 @@ fun SettingsContent(
             SettingsHeader()
 
             // Display Section
-            SettingsSectionHeader(title = "Display", iconRes = kr.yooreka.speedo.R.drawable.ic_monitor)
+            SettingsSectionHeader(title = stringResource(R.string.section_display), iconRes = kr.yooreka.speedo.R.drawable.ic_monitor)
             DisplayCard(
                 speedUnit = speedUnit,
                 onSpeedUnitChange = onSpeedUnitChange,
@@ -159,7 +159,7 @@ fun SettingsContent(
             Spacer(modifier = Modifier.height(32.dp))
 
             // Sensors & BLE Section
-            SettingsSectionHeader(title = "Sensors & BLE", iconRes = kr.yooreka.speedo.R.drawable.ic_records)
+            SettingsSectionHeader(title = stringResource(R.string.section_sensors), iconRes = kr.yooreka.speedo.R.drawable.ic_records)
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 CalibrationCard(
                     isCalibrating = isCalibrating,
@@ -181,7 +181,7 @@ fun SettingsContent(
                 Spacer(modifier = Modifier.height(32.dp))
 
                 // Account & Upgrades Section
-                SettingsSectionHeader(title = "Account & Upgrades", iconRes = kr.yooreka.speedo.R.drawable.ic_premium)
+                SettingsSectionHeader(title = stringResource(R.string.section_account), iconRes = kr.yooreka.speedo.R.drawable.ic_premium)
                 PremiumCard(
                     onPurchaseClick = onPurchaseRemoveAds,
                 )
@@ -191,7 +191,7 @@ fun SettingsContent(
 
             // Version Info
             Text(
-                text = "Every Bari Telemetry v1.2.0",
+                text = stringResource(R.string.app_version),
                 modifier =
                     Modifier
                         .fillMaxWidth()
@@ -250,7 +250,7 @@ fun PremiumCard(onPurchaseClick: () -> Unit) {
             ) {
                 Column(modifier = Modifier.padding(24.dp)) {
                     Text(
-                        text = "Premium Version",
+                        text = stringResource(R.string.premium_version),
                         color = Color(0xFFFFB900),
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Black,
@@ -259,7 +259,7 @@ fun PremiumCard(onPurchaseClick: () -> Unit) {
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Remove all ads permanently",
+                        text = stringResource(R.string.premium_desc),
                         color = SlateText,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
@@ -278,7 +278,7 @@ fun PremiumCard(onPurchaseClick: () -> Unit) {
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
-                            text = "Purchase - \$4.00",
+                            text = stringResource(R.string.premium_purchase),
                             color = Color.Black,
                             fontWeight = FontWeight.Black,
                             fontSize = 14.sp,
@@ -305,7 +305,7 @@ fun DisplayCard(
         Column(modifier = Modifier.padding(24.dp)) {
             // 속도 단위 선택. TPMS(압력) 관련 항목은 이번 버전 비활성화로 제외.
             UnitSelector(
-                label = "Speed Unit",
+                label = stringResource(R.string.speed_unit_label),
                 options = listOf("KM/H", "MPH"),
                 selectedOption = speedUnit,
                 onOptionSelected = onSpeedUnitChange,
@@ -329,7 +329,7 @@ fun CalibrationCard(
     ) {
         Column(modifier = Modifier.padding(24.dp)) {
             Text(
-                text = "Lean Angle Calibration",
+                text = stringResource(R.string.lean_calibration_label),
                 color = Color.White,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Black,
@@ -338,7 +338,7 @@ fun CalibrationCard(
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "Reset sensor zero point",
+                text = stringResource(R.string.lean_calibration_desc),
                 color = SlateText,
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,
@@ -365,7 +365,7 @@ fun CalibrationCard(
                         if (isCalibrating) {
                             stringResource(R.string.calibrating).uppercase()
                         } else {
-                            "CALIBRATE ZERO POINT"
+                            stringResource(R.string.calibrate_button)
                         },
                     color = Color.White,
                     fontWeight = FontWeight.Black,
@@ -377,14 +377,18 @@ fun CalibrationCard(
     }
 }
 
-/** 측정 방식(F-03) 표시 라벨. 실측 비교용 5종. */
+/**
+ * 측정 방식(F-03) 표시 라벨. 실측 비교용 5종.
+ * 기술 용어(GRAVITY 등)는 영어 그대로 두고, 보조 표기(기본/자이로 융합)만 OS 언어로 치환한다.
+ */
+@Composable
 private fun leanModeLabel(mode: LeanMode): String =
     when (mode) {
-        LeanMode.GRAVITY_TILT -> "GRAVITY (기본)"
+        LeanMode.GRAVITY_TILT -> "GRAVITY" + stringResource(R.string.lean_mode_gravity_suffix)
         LeanMode.ACCEL_TILT -> "ACCELEROMETER"
         LeanMode.ROTATION_VECTOR -> "ROTATION VECTOR"
         LeanMode.GAME_ROTATION_VECTOR -> "GAME ROTATION VECTOR"
-        LeanMode.COMPLEMENTARY -> "COMPLEMENTARY (자이로 융합)"
+        LeanMode.COMPLEMENTARY -> "COMPLEMENTARY" + stringResource(R.string.lean_mode_complementary_suffix)
     }
 
 /**
@@ -405,7 +409,7 @@ fun LeanMeasurementCard(
     ) {
         Column(modifier = Modifier.padding(24.dp)) {
             Text(
-                text = "Lean Measurement",
+                text = stringResource(R.string.lean_measurement_title),
                 color = Color.White,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Black,
@@ -414,7 +418,7 @@ fun LeanMeasurementCard(
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "Compare strategies, then keep the most accurate",
+                text = stringResource(R.string.lean_measurement_desc),
                 color = SlateText,
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,
@@ -464,7 +468,7 @@ fun LeanMeasurementCard(
 
             // 진단 CSV는 주행 기록 중 자동 저장되며, 아래 버튼으로 개발자에게 메일 전송한다.
             Text(
-                text = "Diagnostic logs are saved automatically while recording a ride.",
+                text = stringResource(R.string.diagnostic_logs_desc),
                 color = SlateText,
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,
@@ -485,7 +489,7 @@ fun LeanMeasurementCard(
                 contentPadding = PaddingValues(0.dp),
             ) {
                 Text(
-                    text = "EXPORT MEASUREMENTS",
+                    text = stringResource(R.string.export_measurements),
                     color = Color(0xFFCAD5E2),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
@@ -520,7 +524,7 @@ fun AutoStopCard(
             ) {
                 Column(modifier = Modifier.weight(1f).padding(end = 16.dp)) {
                     Text(
-                        text = "자동 종료 감지",
+                        text = stringResource(R.string.auto_stop_detection_title),
                         color = Color.White,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Black,
@@ -528,7 +532,7 @@ fun AutoStopCard(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "저속이 지속되면 주행 종료를 확인합니다",
+                        text = stringResource(R.string.auto_stop_detection_desc),
                         color = SlateText,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
@@ -556,7 +560,7 @@ fun AutoStopCard(
                 Spacer(modifier = Modifier.height(24.dp))
 
                 UnitSelector(
-                    label = "감지 시간 (분)",
+                    label = stringResource(R.string.auto_stop_detection_time),
                     options = listOf("3", "5", "10"),
                     selectedOption = thresholdMin.toString(),
                     onOptionSelected = { onThresholdChange(it.toInt()) },

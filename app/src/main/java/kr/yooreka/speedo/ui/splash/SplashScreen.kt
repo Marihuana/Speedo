@@ -33,6 +33,7 @@ import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -136,7 +137,7 @@ fun SplashScreen(onTimeout: () -> Unit) {
 
             // Title
             Text(
-                text = "EVERY BARI",
+                text = stringResource(R.string.splash_title),
                 color = NeonGreen,
                 fontSize = 36.sp,
                 fontWeight = FontWeight.Black,
@@ -145,7 +146,7 @@ fun SplashScreen(onTimeout: () -> Unit) {
 
             // Subtitle
             Text(
-                text = "TELEMETRY SYSTEM",
+                text = stringResource(R.string.splash_subtitle),
                 color = SlateSubText,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
@@ -156,7 +157,7 @@ fun SplashScreen(onTimeout: () -> Unit) {
             if (locationDenied) {
                 Spacer(modifier = Modifier.height(28.dp))
                 Text(
-                    text = "위치 권한이 있어야 앱을 사용할 수 있습니다.\n권한을 허용한 뒤 다시 실행해 주세요.",
+                    text = stringResource(R.string.splash_location_denied),
                     color = Color(0xFFFB2C36),
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,

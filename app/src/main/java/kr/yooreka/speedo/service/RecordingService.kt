@@ -124,12 +124,12 @@ class RecordingService : Service() {
 
         val notification =
             NotificationCompat.Builder(this, AUTO_STOP_CHANNEL_ID)
-                .setContentTitle("주행이 종료되었습니까?")
-                .setContentText("저속이 지속되어 주행 종료가 감지되었습니다.")
+                .setContentTitle(getString(R.string.auto_stop_notif_title))
+                .setContentText(getString(R.string.auto_stop_notif_text))
                 .setSmallIcon(R.drawable.ic_monitor)
                 .setContentIntent(openIntent)
-                .addAction(R.drawable.ic_stop, "종료", servicePendingIntent(ACTION_STOP_RIDE, 1))
-                .addAction(R.drawable.ic_play, "계속", servicePendingIntent(ACTION_CONTINUE_RIDE, 2))
+                .addAction(R.drawable.ic_stop, getString(R.string.auto_stop_notif_stop), servicePendingIntent(ACTION_STOP_RIDE, 1))
+                .addAction(R.drawable.ic_play, getString(R.string.auto_stop_notif_continue), servicePendingIntent(ACTION_CONTINUE_RIDE, 2))
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .setAutoCancel(true)
                 .setOngoing(false)

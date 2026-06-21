@@ -159,12 +159,12 @@ fun DashBoardHeader(
                     painterResource(
                         id = if (isRecording) R.drawable.ic_stop else R.drawable.ic_play,
                     ),
-                contentDescription = if (isRecording) "Stop" else "Start",
+                contentDescription = if (isRecording) stringResource(R.string.cd_stop) else stringResource(R.string.cd_start),
                 modifier = Modifier.size(16.dp),
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = if (isRecording) "정지" else "기록",
+                text = if (isRecording) stringResource(R.string.record_button_stop) else stringResource(R.string.record_button_start),
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Black,
                 letterSpacing = 0.3.sp,

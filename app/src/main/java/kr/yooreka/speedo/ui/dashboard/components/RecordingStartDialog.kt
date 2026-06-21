@@ -25,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -78,7 +79,7 @@ fun RecordingStartDialog(
 
                 // Title
                 Text(
-                    text = "주행 기록을 시작합니다",
+                    text = stringResource(R.string.recording_start_title),
                     color = Color.White,
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Black,
@@ -91,7 +92,7 @@ fun RecordingStartDialog(
 
                 // Subtitle
                 Text(
-                    text = "주행 데이터가 자동으로 저장됩니다.",
+                    text = stringResource(R.string.recording_start_desc),
                     color = SlateSubText,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
@@ -117,7 +118,7 @@ fun RecordingStartDialog(
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF314158)),
                     ) {
                         Text(
-                            text = "취소",
+                            text = stringResource(R.string.cancel),
                             color = Color.White,
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Black,
@@ -136,7 +137,7 @@ fun RecordingStartDialog(
                         colors = ButtonDefaults.buttonColors(containerColor = NeonGreen),
                     ) {
                         Text(
-                            text = "시작",
+                            text = stringResource(R.string.start),
                             color = BackgroundBlack,
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Black,
