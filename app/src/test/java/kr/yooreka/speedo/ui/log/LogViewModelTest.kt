@@ -139,4 +139,36 @@ class LogViewModelTest {
             vm.selectPoint(null)
             assertNull(vm.uiState.value.selectedPoint)
         }
+
+    @Test
+    fun `selectNext from no selection selects first then clamps at last`() {
+        repository.setRides(listOf(Ride(id = 1, title = "R", startTime = 0L)))
+        repository.telemetryByRide = mapOf(1L to listOf(point(1, 20f), point(2, 30f), point(3, 40f)))
+        val vm = viewModel(1)
+        val points = vm.uiState.value.routePoints
+
+        vm.selectNext()
+        assertEquals(points.first(), vm.uiState.value.selectedPoint)
+
+        vm.selectNext()
+        vm.selectNext()
+        vm.selectNext() // 마지막에서 더 눌러도 클램프
+        assertEquals(points.last(), vm.uiState.value.selectedPoint)
+    }
+
+    @Test
+    fun `selectPrevious from no selection selects last then clamps at first`() {
+        repository.setRides(listOf(Ride(id = 1, title = "R", startTime = 0L)))
+        repository.telemetryByRide = mapOf(1L to listOf(point(1, 20f), point(2, 30f), point(3, 40f)))
+        val vm = viewModel(1)
+        val points = vm.uiState.value.routePoints
+
+        vm.selectPrevious()
+        assertEquals(points.last(), vm.uiState.value.selectedPoint)
+
+        vm.selectPrevious()
+        vm.selectPrevious()
+        vm.selectPrevious() // 처음에서 더 눌러도 클램프
+        assertEquals(points.first(), vm.uiState.value.selectedPoint)
+    }
 }
