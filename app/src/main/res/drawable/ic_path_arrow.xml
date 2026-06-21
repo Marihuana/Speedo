@@ -1,0 +1,10 @@
+<!-- F-13a: 경로 진행 방향 표시용 삼각형 스탬프. 색상 라인 위에 흰색 삼각형으로 그려진다. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M12,4 L20,20 L4,20 Z" />
+</vector>

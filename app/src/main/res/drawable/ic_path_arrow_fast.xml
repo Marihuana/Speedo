@@ -1,0 +1,13 @@
+<!-- F-13a: 고속(≥200km/h) 경로 표시용 fast-forward 스탬프. 같은 방향 삼각형 2개가 겹쳐 빠른 진행을 나타낸다. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="36dp"
+    android:viewportWidth="24"
+    android:viewportHeight="36">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M12,2 L22,18 L2,18 Z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M12,16 L22,32 L2,32 Z" />
+</vector>
