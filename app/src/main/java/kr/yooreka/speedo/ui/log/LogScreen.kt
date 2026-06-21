@@ -585,7 +585,7 @@ fun RideSummarySheet(
 
         if (segmentSummary == null) {
             Text(
-                text = "SESSION SUMMARY",
+                text = stringResource(R.string.session_summary),
                 color = SecondaryText,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
@@ -601,14 +601,14 @@ fun RideSummarySheet(
                         .padding(horizontal = 24.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                SummaryItem(R.drawable.ic_duration, "TIME", summary.time, null)
-                SummaryItem(R.drawable.ic_distance, "DIST", summary.distanceKm, "KM")
-                SummaryItem(R.drawable.ic_monitor, "TOP SPD", summary.topSpeedKmh, "KM/H")
-                SummaryItem(R.drawable.ic_max_lean, "MAX LEAN", "${summary.maxLeanDeg}°", null)
+                SummaryItem(R.drawable.ic_duration, stringResource(R.string.summary_time), summary.time, null)
+                SummaryItem(R.drawable.ic_distance, stringResource(R.string.summary_dist), summary.distanceKm, "KM")
+                SummaryItem(R.drawable.ic_monitor, stringResource(R.string.summary_top_speed), summary.topSpeedKmh, "KM/H")
+                SummaryItem(R.drawable.ic_max_lean, stringResource(R.string.summary_max_lean), "${summary.maxLeanDeg}°", null)
             }
         } else {
             Text(
-                text = "SEGMENT TELEMETRY",
+                text = stringResource(R.string.segment_telemetry),
                 color = NeonLime,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
@@ -627,7 +627,7 @@ fun RideSummarySheet(
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
-                        text = "CORNER SPEED",
+                        text = stringResource(R.string.corner_speed),
                         color = SecondaryText,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
@@ -657,7 +657,7 @@ fun RideSummarySheet(
 
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
-                        text = "LEAN ANGLE",
+                        text = stringResource(R.string.log_lean_angle),
                         color = SecondaryText,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
@@ -695,8 +695,8 @@ fun RideSummarySheet(
                         .padding(horizontal = 24.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                SegmentNavButton(label = "◀ PREV", onStep = onSelectPrevious, modifier = Modifier.weight(1f))
-                SegmentNavButton(label = "NEXT ▶", onStep = onSelectNext, modifier = Modifier.weight(1f))
+                SegmentNavButton(label = stringResource(R.string.segment_prev), onStep = onSelectPrevious, modifier = Modifier.weight(1f))
+                SegmentNavButton(label = stringResource(R.string.segment_next), onStep = onSelectNext, modifier = Modifier.weight(1f))
             }
         }
     }

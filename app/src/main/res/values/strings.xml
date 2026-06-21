@@ -14,6 +14,21 @@
     <string name="tpms_status">TPMS STATUS</string>
     <string name="rear">REAR</string>
     <string name="front">FRONT</string>
+    <string name="record_button_start">REC</string>
+    <string name="record_button_stop">STOP</string>
+    <string name="cd_start">Start</string>
+    <string name="cd_stop">Stop</string>
+
+    <!-- Recording start dialog -->
+    <string name="recording_start_title">Start Riding Record</string>
+    <string name="recording_start_desc">Ride data will be saved automatically.</string>
+    <string name="start">Start</string>
+
+    <!-- Auto-stop dialog -->
+    <string name="auto_stop_title">Confirm Ride End</string>
+    <string name="auto_stop_message">Looks like your ride has ended.\nDo you want to stop recording?</string>
+    <string name="no">No</string>
+    <string name="yes">Yes</string>
 
     <!-- Records -->
     <string name="records_title">RECORDS</string>
@@ -30,6 +45,15 @@
     <string name="delete_ride_title">Delete Ride</string>
     <string name="delete_ride_message">Delete \"%1$s\"? This cannot be undone.</string>
     <string name="delete">Delete</string>
+    <string name="edit_title">Edit Title</string>
+    <string name="rename_ride_desc">Enter a new title for this riding record.</string>
+    <string name="save">Save</string>
+    <string name="delete_ride_dialog_title">Delete Riding Record</string>
+    <string name="delete_ride_dialog_message">Delete this riding record? This action cannot be undone.</string>
+    <string name="more_options">More options</string>
+    <string name="stat_duration">DURATION</string>
+    <string name="stat_top_speed">TOP SPD</string>
+    <string name="stat_lean">LEAN</string>
 
     <!-- Settings -->
     <string name="settings_title">SETTINGS</string>
@@ -50,7 +74,29 @@
     <string name="calibrate_button">CALIBRATE ZERO POINT</string>
     <string name="calibrating">CALIBRATING…</string>
     <string name="calibration_reset">Calibration reset</string>
-    <string name="app_version">Every Bari Telemetry v1.1.0</string>
+    <string name="app_version">Every Bari Telemetry v1.2.0</string>
+
+    <!-- Settings sections / cards -->
+    <string name="section_account">Account &amp; Upgrades</string>
+    <string name="speed_unit_label">Speed Unit</string>
+    <string name="lean_calibration_label">Lean Angle Calibration</string>
+    <string name="lean_calibration_desc">Reset sensor zero point</string>
+    <string name="premium_version">Premium Version</string>
+    <string name="premium_desc">Remove all ads permanently</string>
+    <string name="premium_purchase">Purchase - \$4.00</string>
+    <string name="lean_measurement_title">Lean Measurement</string>
+    <string name="lean_measurement_desc">Compare strategies, then keep the most accurate</string>
+    <string name="diagnostic_logs_desc">Diagnostic logs are saved automatically while recording a ride.</string>
+    <string name="export_measurements">EXPORT MEASUREMENTS</string>
+    <string name="lean_mode_gravity_suffix"> (Default)</string>
+    <string name="lean_mode_complementary_suffix"> (Gyro Fusion)</string>
+    <string name="auto_stop_detection_title">Auto-Stop Detection</string>
+    <string name="auto_stop_detection_desc">Confirm ride end when low speed persists</string>
+    <string name="auto_stop_detection_time">Detection Time (min)</string>
+    <string name="diagnostic_no_data">No diagnostic data to send. Record a ride first.</string>
+    <string name="diagnostic_email_subject">Speedo lean diagnostics</string>
+    <string name="diagnostic_email_body">Attaching %1$d lean measurement diagnostic CSV file(s).</string>
+    <string name="diagnostic_chooser_title">Export diagnostics</string>
 
     <!-- Dialogs -->
     <string name="dialog_connect_title">Sensor Connection</string>
@@ -71,8 +117,26 @@
     <string name="session_summary">SESSION SUMMARY</string>
     <string name="selected_point_telemetry">SELECTED POINT TELEMETRY</string>
     <string name="tap_points_hint">TAP POINTS ON ROUTE FOR TELEMETRY</string>
-    
+    <string name="segment_telemetry">SEGMENT TELEMETRY</string>
+    <string name="corner_speed">CORNER SPEED</string>
+    <string name="log_lean_angle">LEAN ANGLE</string>
+    <string name="summary_time">TIME</string>
+    <string name="summary_dist">DIST</string>
+    <string name="summary_top_speed">TOP SPD</string>
+    <string name="summary_max_lean">MAX LEAN</string>
+    <string name="segment_prev">◀ PREV</string>
+    <string name="segment_next">NEXT ▶</string>
+
+    <!-- Splash -->
+    <string name="splash_title">EVERY BARI</string>
+    <string name="splash_subtitle">TELEMETRY SYSTEM</string>
+    <string name="splash_location_denied">Location permission is required to use the app.\nPlease grant the permission and relaunch.</string>
+
     <!-- Service -->
     <string name="service_title">Every Bari Recording</string>
     <string name="service_desc">Telemetry data is being recorded...</string>
+    <string name="auto_stop_notif_title">Has your ride ended?</string>
+    <string name="auto_stop_notif_text">Ride end detected due to sustained low speed.</string>
+    <string name="auto_stop_notif_stop">Stop</string>
+    <string name="auto_stop_notif_continue">Continue</string>
 </resources>

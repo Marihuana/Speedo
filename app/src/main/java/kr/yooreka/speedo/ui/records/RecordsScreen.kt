@@ -296,7 +296,7 @@ fun RideRecordCard(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.MoreVert,
-                                contentDescription = "More options",
+                                contentDescription = stringResource(R.string.more_options),
                                 tint = Color.White,
                                 modifier = Modifier.size(20.dp),
                             )
@@ -311,14 +311,14 @@ fun RideRecordCard(
                                     .border(0.6.dp, Color(0xFF314158), RoundedCornerShape(8.dp)),
                         ) {
                             DropdownMenuItem(
-                                text = { Text("타이틀 수정", color = Color.White, fontSize = 14.sp) },
+                                text = { Text(stringResource(R.string.edit_title), color = Color.White, fontSize = 14.sp) },
                                 onClick = {
                                     expanded = false
                                     onRenameClick()
                                 },
                             )
                             DropdownMenuItem(
-                                text = { Text("삭제", color = DangerRed, fontSize = 14.sp) },
+                                text = { Text(stringResource(R.string.delete), color = DangerRed, fontSize = 14.sp) },
                                 onClick = {
                                     expanded = false
                                     onDeleteClick()
@@ -335,9 +335,14 @@ fun RideRecordCard(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                RecordStatItem(iconRes = R.drawable.ic_duration, label = "DURATION", value = record.duration)
-                RecordStatItem(iconRes = R.drawable.ic_monitor, label = "TOP SPD", value = record.topSpeed, unit = "KM/H")
-                RecordStatItem(iconRes = R.drawable.ic_max_lean, label = "LEAN", value = record.maxLean)
+                RecordStatItem(iconRes = R.drawable.ic_duration, label = stringResource(R.string.stat_duration), value = record.duration)
+                RecordStatItem(
+                    iconRes = R.drawable.ic_monitor,
+                    label = stringResource(R.string.stat_top_speed),
+                    value = record.topSpeed,
+                    unit = "KM/H",
+                )
+                RecordStatItem(iconRes = R.drawable.ic_max_lean, label = stringResource(R.string.stat_lean), value = record.maxLean)
             }
         }
     }
@@ -412,7 +417,7 @@ fun RenameRideDialog(
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Text(
-                    text = "타이틀 수정",
+                    text = stringResource(R.string.edit_title),
                     color = Color.White,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Black,
@@ -420,7 +425,7 @@ fun RenameRideDialog(
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "주행 기록의 새로운 타이틀을 입력하세요.",
+                    text = stringResource(R.string.rename_ride_desc),
                     color = SlateSubText,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Normal,
@@ -469,7 +474,7 @@ fun RenameRideDialog(
                         contentPadding = PaddingValues(0.dp),
                     ) {
                         Text(
-                            text = "저장",
+                            text = stringResource(R.string.save),
                             color = Color.Black,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Medium,
@@ -486,7 +491,7 @@ fun RenameRideDialog(
                         contentPadding = PaddingValues(0.dp),
                     ) {
                         Text(
-                            text = "취소",
+                            text = stringResource(R.string.cancel),
                             color = Color.White,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Medium,
@@ -517,7 +522,7 @@ fun DeleteRideDialog(
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Text(
-                    text = "주행 기록 삭제",
+                    text = stringResource(R.string.delete_ride_dialog_title),
                     color = Color.White,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Black,
@@ -525,7 +530,7 @@ fun DeleteRideDialog(
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "이 주행 기록을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.",
+                    text = stringResource(R.string.delete_ride_dialog_message),
                     color = SlateSubText,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Normal,
@@ -544,7 +549,7 @@ fun DeleteRideDialog(
                         contentPadding = PaddingValues(0.dp),
                     ) {
                         Text(
-                            text = "삭제",
+                            text = stringResource(R.string.delete),
                             color = Color.White,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Medium,
@@ -561,7 +566,7 @@ fun DeleteRideDialog(
                         contentPadding = PaddingValues(0.dp),
                     ) {
                         Text(
-                            text = "취소",
+                            text = stringResource(R.string.cancel),
                             color = Color.White,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Medium,

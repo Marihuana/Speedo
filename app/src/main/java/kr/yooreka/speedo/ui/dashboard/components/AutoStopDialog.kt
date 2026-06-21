@@ -23,11 +23,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import kr.yooreka.speedo.R
 import kr.yooreka.speedo.ui.theme.SlateDark
 import kr.yooreka.speedo.ui.theme.SlateSubText
 
@@ -81,7 +83,7 @@ fun AutoStopDialog(
                 Spacer(modifier = Modifier.height(24.dp))
 
                 Text(
-                    text = "주행 종료 확인",
+                    text = stringResource(R.string.auto_stop_title),
                     color = Color.White,
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Black,
@@ -92,7 +94,7 @@ fun AutoStopDialog(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Text(
-                    text = "주행 종료로 판단됩니다.\n주행 기록을 종료하겠습니까?",
+                    text = stringResource(R.string.auto_stop_message),
                     color = SlateSubText,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
@@ -117,7 +119,7 @@ fun AutoStopDialog(
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF314158)),
                     ) {
                         Text(
-                            text = "아니오",
+                            text = stringResource(R.string.no),
                             color = Color.White,
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Black,
@@ -135,7 +137,7 @@ fun AutoStopDialog(
                         colors = ButtonDefaults.buttonColors(containerColor = DangerRed),
                     ) {
                         Text(
-                            text = "예",
+                            text = stringResource(R.string.yes),
                             color = Color.White,
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Black,
