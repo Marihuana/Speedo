@@ -16,6 +16,12 @@ interface TelemetryRepository {
      */
     val brakeStream: StateFlow<BrakeState>
 
+    /**
+     * 주행 종료 예상 감지(F-18). 기록 중 저속(정지/도보 수준)이 설정 시간(F-18a) 동안 지속되면 true.
+     * 사용자가 [continueRide] 하거나 속도가 회복되면 false 로 돌아간다.
+     */
+    val autoStopSuggested: StateFlow<Boolean>
+
     fun startTelemetry()
 
     fun stopTelemetry()
@@ -23,6 +29,9 @@ interface TelemetryRepository {
     fun startRecording()
 
     fun stopRecording()
+
+    /** 종료 예상 알림/다이얼로그에서 '계속'을 선택했을 때: 감지 타이머를 초기화한다(F-18). */
+    fun continueRide()
 
     fun flushBuffer()
 }

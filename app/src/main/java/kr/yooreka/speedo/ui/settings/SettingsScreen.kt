@@ -31,6 +31,8 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -83,6 +85,8 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
         selectedLeanMode = state.leanMeasurementMode,
         onLeanModeChange = { viewModel.updateLeanMeasurementMode(it) },
         onExportDiagnostics = { shareDiagnosticCsv(context, viewModel.diagnosticCsvFiles()) },
+        autoStopThresholdMin = state.autoStopThresholdMin,
+        onAutoStopThresholdChange = { viewModel.updateAutoStopThreshold(it) },
     )
 }
 
@@ -127,6 +131,8 @@ fun SettingsContent(
     selectedLeanMode: LeanMode = LeanMode.DEFAULT,
     onLeanModeChange: (LeanMode) -> Unit = {},
     onExportDiagnostics: () -> Unit = {},
+    autoStopThresholdMin: Int = 5,
+    onAutoStopThresholdChange: (Int) -> Unit = {},
 ) {
     Column(
         modifier =
@@ -164,6 +170,10 @@ fun SettingsContent(
                     selectedMode = selectedLeanMode,
                     onModeSelected = onLeanModeChange,
                     onExportDiagnostics = onExportDiagnostics,
+                )
+                AutoStopCard(
+                    thresholdMin = autoStopThresholdMin,
+                    onThresholdChange = onAutoStopThresholdChange,
                 )
             }
 
@@ -480,6 +490,76 @@ fun LeanMeasurementCard(
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.2.sp,
+                )
+            }
+        }
+    }
+}
+
+/**
+ * 주행 종료 예상 감지 설정(F-18a). ON/OFF 스위치 + (ON일 때) 3/5/10분 선택.
+ * thresholdMin 0=OFF, >0=ON(분).
+ */
+@Composable
+fun AutoStopCard(
+    thresholdMin: Int,
+    onThresholdChange: (Int) -> Unit,
+) {
+    val enabled = thresholdMin > 0
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = SlateDark),
+        elevation = CardDefaults.cardElevation(defaultElevation = 10.dp),
+    ) {
+        Column(modifier = Modifier.padding(24.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f).padding(end = 16.dp)) {
+                    Text(
+                        text = "자동 종료 감지",
+                        color = Color.White,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = (-0.71).sp,
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "저속이 지속되면 주행 종료를 확인합니다",
+                        color = SlateText,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.12.sp,
+                        lineHeight = 15.sp,
+                    )
+                }
+                Switch(
+                    checked = enabled,
+                    onCheckedChange = { on -> onThresholdChange(if (on) 5 else 0) },
+                    colors =
+                        SwitchDefaults.colors(
+                            checkedThumbColor = Color.Black,
+                            checkedTrackColor = NeonGreen,
+                            uncheckedThumbColor = Color.Black,
+                            uncheckedTrackColor = Color(0xFF314158),
+                            uncheckedBorderColor = Color.Transparent,
+                        ),
+                )
+            }
+
+            if (enabled) {
+                Spacer(modifier = Modifier.height(24.dp))
+                HorizontalDivider(color = Color(0xFF314158), thickness = 1.dp)
+                Spacer(modifier = Modifier.height(24.dp))
+
+                UnitSelector(
+                    label = "감지 시간 (분)",
+                    options = listOf("3", "5", "10"),
+                    selectedOption = thresholdMin.toString(),
+                    onOptionSelected = { onThresholdChange(it.toInt()) },
                 )
             }
         }

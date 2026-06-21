@@ -25,6 +25,7 @@ data class UserPreferences(
     val rearTpmsId: String,
     val launchCount: Int,
     val leanMeasurementMode: String,
+    val autoStopThresholdMin: Int,
 )
 
 @Singleton
@@ -41,6 +42,7 @@ class UserPreferencesRepository
             val REAR_TPMS_ID = stringPreferencesKey("rear_tpms_id")
             val LAUNCH_COUNT = intPreferencesKey("launch_count")
             val LEAN_MEASUREMENT_MODE = stringPreferencesKey("lean_measurement_mode")
+            val AUTO_STOP_THRESHOLD = intPreferencesKey("auto_stop_threshold")
         }
 
         val userPreferencesFlow: Flow<UserPreferences> =
@@ -54,6 +56,7 @@ class UserPreferencesRepository
                     val launchCount = preferences[PreferencesKeys.LAUNCH_COUNT] ?: 0
                     val leanMeasurementMode =
                         preferences[PreferencesKeys.LEAN_MEASUREMENT_MODE] ?: LeanMode.DEFAULT.name
+                    val autoStopThresholdMin = preferences[PreferencesKeys.AUTO_STOP_THRESHOLD] ?: DEFAULT_AUTO_STOP_MIN
 
                     UserPreferences(
                         showTpmsData = showTpmsData,
@@ -63,6 +66,7 @@ class UserPreferencesRepository
                         rearTpmsId = rearTpmsId,
                         launchCount = launchCount,
                         leanMeasurementMode = leanMeasurementMode,
+                        autoStopThresholdMin = autoStopThresholdMin,
                     )
                 }
 
@@ -70,6 +74,11 @@ class UserPreferencesRepository
         val leanMeasurementModeFlow: Flow<LeanMode> =
             context.dataStore.data
                 .map { LeanMode.fromName(it[PreferencesKeys.LEAN_MEASUREMENT_MODE]) }
+
+        /** 주행 종료 예상 감지 임계값(분, 0=OFF). 기록 중 저속 지속 감지에 사용(F-18a). */
+        val autoStopThresholdFlow: Flow<Int> =
+            context.dataStore.data
+                .map { it[PreferencesKeys.AUTO_STOP_THRESHOLD] ?: DEFAULT_AUTO_STOP_MIN }
 
         suspend fun incrementLaunchCount() {
             context.dataStore.edit { preferences ->
@@ -120,5 +129,17 @@ class UserPreferencesRepository
             context.dataStore.edit { preferences ->
                 preferences[PreferencesKeys.LEAN_MEASUREMENT_MODE] = mode.name
             }
+        }
+
+        /** 주행 종료 예상 감지 임계값(분, 0=OFF) 저장(F-18a). */
+        suspend fun updateAutoStopThreshold(minutes: Int) {
+            context.dataStore.edit { preferences ->
+                preferences[PreferencesKeys.AUTO_STOP_THRESHOLD] = minutes
+            }
+        }
+
+        companion object {
+            /** 주행 종료 예상 감지 기본 임계값(분). */
+            const val DEFAULT_AUTO_STOP_MIN = 5
         }
     }

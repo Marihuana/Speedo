@@ -201,6 +201,8 @@ fun MainPagerScreen(
                                 adManager.showInterstitial(activity) {}
                             }
                         },
+                        onAutoStopContinue = { viewModel.onAutoStopContinue() },
+                        onAutoStopConfirm = { viewModel.onAutoStopConfirm() },
                     )
                 }
                 1 -> {

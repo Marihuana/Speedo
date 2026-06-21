@@ -37,6 +37,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.flow.SharedFlow
 import kr.yooreka.speedo.R
+import kr.yooreka.speedo.ui.dashboard.components.AutoStopDialog
 import kr.yooreka.speedo.ui.dashboard.components.RecordingStartDialog
 import kr.yooreka.speedo.ui.dashboard.components.SpeedometerCard
 import kr.yooreka.speedo.ui.theme.BackgroundBlack
@@ -52,6 +53,8 @@ fun DashBoardScreen(
     onRecordToggle: () -> Unit = {},
     onConfirmRecording: () -> Unit = {},
     onShowInterstitial: () -> Unit = {},
+    onAutoStopContinue: () -> Unit = {},
+    onAutoStopConfirm: () -> Unit = {},
 ) {
     var showStartDialog by remember { mutableStateOf(false) }
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -98,6 +101,14 @@ fun DashBoardScreen(
                     showStartDialog = false
                     onConfirmRecording()
                 },
+            )
+        }
+
+        // 주행 종료 예상 감지(F-18): 포그라운드일 때 확인 다이얼로그 표시.
+        if (state.autoStopSuggested) {
+            AutoStopDialog(
+                onContinue = onAutoStopContinue,
+                onStop = onAutoStopConfirm,
             )
         }
     }

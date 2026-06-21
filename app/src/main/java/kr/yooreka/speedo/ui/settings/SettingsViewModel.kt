@@ -23,6 +23,8 @@ data class SettingsState(
     val isCalibrating: Boolean = false,
     val isAdRemoved: Boolean = false,
     val leanMeasurementMode: LeanMode = LeanMode.DEFAULT,
+    // 주행 종료 예상 감지 임계값(분, 0=OFF, F-18a).
+    val autoStopThresholdMin: Int = 5,
 )
 
 @HiltViewModel
@@ -47,6 +49,7 @@ class SettingsViewModel
                     isCalibrating = calibrating,
                     isAdRemoved = isAdRemoved,
                     leanMeasurementMode = LeanMode.fromName(prefs.leanMeasurementMode),
+                    autoStopThresholdMin = prefs.autoStopThresholdMin,
                 )
             }.stateIn(
                 scope = viewModelScope,
@@ -73,6 +76,13 @@ class SettingsViewModel
 
         /** 저장된 lean 진단 CSV 파일 목록(Export 메일 전송용). 기록은 주행 측정 중 자동 수행된다. */
         fun diagnosticCsvFiles(): List<File> = leanDiagnosticLogger.logFiles()
+
+        /** 주행 종료 예상 감지 임계값(분, 0=OFF) 변경(F-18a). */
+        fun updateAutoStopThreshold(minutes: Int) {
+            viewModelScope.launch {
+                userPreferencesRepository.updateAutoStopThreshold(minutes)
+            }
+        }
 
         /** 영점 보정값을 초기화한다(offset = 0). */
         fun resetCalibration() {
