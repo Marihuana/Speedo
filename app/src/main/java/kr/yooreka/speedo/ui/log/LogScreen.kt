@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -42,11 +43,14 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.google.android.gms.maps.CameraUpdateFactory
+import com.google.android.gms.maps.MapsInitializer
+import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.LatLngBounds
 import com.google.android.gms.maps.model.StrokeStyle
 import com.google.android.gms.maps.model.StyleSpan
+import com.google.android.gms.maps.model.TextureStyle
 import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.MapProperties
 import com.google.maps.android.compose.MapType
@@ -67,32 +71,90 @@ private val SecondaryText = Color(0xFF8A98B0)
 private val PathColor = Color(0xFF4A5878)
 private val BackBtnBg = Color(0xFF000000)
 
-// ── 경로 색상 (Lean Angle / Speed 기준) ─────────────────────────────────────────
-private val LeanGreen = Color(0xFFCCFF00) // Lean < 15°
-private val LeanYellow = Color(0xFFFACC15) // 15° ≤ Lean < 30°
-private val LeanOrange = Color(0xFFF97316) // 30° ≤ Lean < 45°
-private val LeanRed = Color(0xFFEF4444) // Lean ≥ 45°
-private val SpeedBlue = Color(0xFF3B82F6) // Speed ≥ 200 km/h (최우선)
+// ── 경로 색상 (F-13a: 뱅킹각 Roll 만으로 결정. 속도는 색상이 아닌 선 모양으로 표기) ───────────
+// Dark 모드 (어두운 계열)
+private val LeanDark15 = Color(0xFF15803D) // Lean < 15°
+private val LeanDark30 = Color(0xFFB45309) // 15° ≤ Lean < 30°
+private val LeanDark45 = Color(0xFF9A3412) // 30° ≤ Lean < 45°
+private val LeanDark45Plus = Color(0xFF7F1D1D) // Lean ≥ 45°
 
-/** 주행 데이터(lean angle, speed)를 경로 색상으로 매핑한다. 속도 200km/h 이상이면 파란색이 우선한다. */
+// Light 모드 (High-Saturation Contrast)
+private val LeanLight15 = Color(0xFF065F46) // Lean < 15°
+private val LeanLight30 = Color(0xFF1E40AF) // 15° ≤ Lean < 30°
+private val LeanLight45 = Color(0xFF991B1B) // 30° ≤ Lean < 45°
+private val LeanLight45Plus = Color(0xFF4C1D95) // Lean ≥ 45°
+
+/** F-13a: 뱅킹각(절대값)만으로 경로 색상을 결정한다. 모드(Light/Dark)별 팔레트를 사용한다. */
 private fun routeColor(
-    speed: Float,
     roll: Float,
+    isDark: Boolean,
 ): Color {
     val lean = abs(roll)
     return when {
-        speed >= 200f -> SpeedBlue
-        lean < 15f -> LeanGreen
-        lean < 30f -> LeanYellow
-        lean < 45f -> LeanOrange
-        else -> LeanRed
+        lean < 15f -> if (isDark) LeanDark15 else LeanLight15
+        lean < 30f -> if (isDark) LeanDark30 else LeanLight30
+        lean < 45f -> if (isDark) LeanDark45 else LeanLight45
+        else -> if (isDark) LeanDark45Plus else LeanLight45Plus
     }
 }
 
-/** 지도에 그릴 경로 점: 위치 + 해당 구간 색상 */
+/** F-13a: 속도 구간 → 선 모양(삼각형 스탬프 밀도). */
+enum class SpeedStyle { SOLID, SPARSE, DENSE }
+
+private fun speedStyle(speed: Float): SpeedStyle =
+    when {
+        speed < 100f -> SpeedStyle.SOLID
+        speed < 200f -> SpeedStyle.SPARSE
+        else -> SpeedStyle.DENSE
+    }
+
+/** 속도 모양별 스탬프 텍스처 묶음. 희소=단일 삼각형(ic_path_arrow), 밀집=fast-forward(ic_path_arrow_fast). */
+private class SpeedStamps(
+    val sparse: TextureStyle,
+    val dense: TextureStyle,
+)
+
+/**
+ * 방향 스탬프 텍스처를 만든다. drawable 을 [widthPx]×[heightPx] 로 렌더하고 아래에 [padBelowPx] 만큼
+ * 여백을 둬 스탬프 반복 간격(밀도)을 만든 뒤, **세로로 뒤집어** 화살표가 주행 진행 방향을 가리키게 한다
+ * (Maps TextureStyle 기본 방향이 역방향이라 반전한다). 호출 전 [MapsInitializer] 초기화 필요.
+ */
+private fun directionStamp(
+    context: android.content.Context,
+    drawableRes: Int,
+    widthPx: Int,
+    heightPx: Int,
+    padBelowPx: Int,
+): TextureStyle {
+    val drawable = androidx.core.content.ContextCompat.getDrawable(context, drawableRes)!!
+    val bitmap =
+        android.graphics.Bitmap.createBitmap(
+            widthPx,
+            heightPx + padBelowPx,
+            android.graphics.Bitmap.Config.ARGB_8888,
+        )
+    val canvas = android.graphics.Canvas(bitmap)
+    drawable.setBounds(0, 0, widthPx, heightPx)
+    drawable.draw(canvas)
+    // Maps 의 텍스처 기본 진행 방향과 반대라, 비트맵을 상하 반전해 화살표가 주행 방향을 향하게 한다.
+    val flipped =
+        android.graphics.Bitmap.createBitmap(
+            bitmap,
+            0,
+            0,
+            bitmap.width,
+            bitmap.height,
+            android.graphics.Matrix().apply { postScale(1f, -1f) },
+            false,
+        )
+    return TextureStyle.newBuilder(BitmapDescriptorFactory.fromBitmap(flipped)).build()
+}
+
+/** 지도에 그릴 경로 점: 위치 + 구간 색상(뱅킹각) + 구간 선 모양(속도) */
 data class RoutePoint(
     val position: LatLng,
     val color: Color,
+    val speedStyle: SpeedStyle,
 )
 
 @Composable
@@ -103,11 +165,16 @@ fun LogScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
+    val isDarkTheme = isSystemInDarkTheme()
     val routePoints =
-        remember(state.routePoints) {
+        remember(state.routePoints, isDarkTheme) {
             state.routePoints.mapNotNull {
                 if (it.latitude != null && it.longitude != null) {
-                    RoutePoint(LatLng(it.latitude!!, it.longitude!!), routeColor(it.speed, it.roll))
+                    RoutePoint(
+                        position = LatLng(it.latitude!!, it.longitude!!),
+                        color = routeColor(it.roll, isDarkTheme),
+                        speedStyle = speedStyle(it.speed),
+                    )
                 } else {
                     null
                 }
@@ -300,27 +367,54 @@ fun MapRouteSection(
     // 모든 경로 점을 가진 단일 Polyline 으로 그려 네이티브 오버레이 수를 1개로 줄인다.
     // 줌/팬 시 엔진이 재투영해야 할 오버레이가 N-1개 → 1개가 되어 쓰로틀링을 제거한다.
     val routeLatLngs = remember(routePoints) { routePoints.map { it.position } }
-    // 연속 동일 색상 구간을 하나의 StyleSpan 으로 병합(coalesce)해 span 개수를 최소화한다.
+
+    // 속도 구간(F-13a)을 삼각형 스탬프로 표기하기 위한 텍스처. BitmapDescriptor 사용 전 Maps 초기화가 필요하다.
+    val speedStamps =
+        remember(context) {
+            MapsInitializer.initialize(context)
+            SpeedStamps(
+                // <200km/h: 단일 삼각형, 희소 간격.
+                sparse = directionStamp(context, R.drawable.ic_path_arrow, widthPx = 48, heightPx = 48, padBelowPx = 96),
+                // ≥200km/h: fast-forward(삼각형 2개 겹침), 밀집 간격.
+                dense = directionStamp(context, R.drawable.ic_path_arrow_fast, widthPx = 48, heightPx = 72, padBelowPx = 16),
+            )
+        }
+
+    // 연속 동일 스타일(색상 + 속도 모양) 구간을 하나의 StyleSpan 으로 병합(coalesce)해 span 개수를 최소화한다.
     // 각 StyleSpan 의 segment 수 합은 정확히 points.size - 1 이다(구간 = 점 사이 선분).
     val routeSpans =
-        remember(routePoints) {
+        remember(routePoints, speedStamps) {
+            fun strokeFor(
+                argb: Int,
+                style: SpeedStyle,
+            ): StrokeStyle {
+                val builder = StrokeStyle.colorBuilder(argb)
+                when (style) {
+                    SpeedStyle.SOLID -> Unit
+                    SpeedStyle.SPARSE -> builder.stamp(speedStamps.sparse)
+                    SpeedStyle.DENSE -> builder.stamp(speedStamps.dense)
+                }
+                return builder.build()
+            }
+
             val spans = ArrayList<StyleSpan>()
             if (routePoints.size >= 2) {
                 var runArgb = routePoints[1].color.toArgb()
+                var runStyle = routePoints[1].speedStyle
                 var runSegments = 0
                 for (i in 0 until routePoints.size - 1) {
                     val segmentArgb = routePoints[i + 1].color.toArgb()
-                    if (segmentArgb == runArgb) {
+                    val segmentStyle = routePoints[i + 1].speedStyle
+                    if (segmentArgb == runArgb && segmentStyle == runStyle) {
                         runSegments++
                     } else {
-                        spans.add(
-                            StyleSpan(StrokeStyle.colorBuilder(runArgb).build(), runSegments.toDouble()),
-                        )
+                        spans.add(StyleSpan(strokeFor(runArgb, runStyle), runSegments.toDouble()))
                         runArgb = segmentArgb
+                        runStyle = segmentStyle
                         runSegments = 1
                     }
                 }
-                spans.add(StyleSpan(StrokeStyle.colorBuilder(runArgb).build(), runSegments.toDouble()))
+                spans.add(StyleSpan(strokeFor(runArgb, runStyle), runSegments.toDouble()))
             }
             spans
         }
@@ -387,12 +481,18 @@ fun MapRouteSection(
             onMapClick = onMapClick,
         ) {
             if (routePoints.size >= 2) {
-                // 구간별 색상(lean angle / speed 기준)은 StyleSpan 으로 표현한다.
+                // 화이트 아웃라인(언더레이): 색상 라인보다 약간 두껍게 먼저 그려 밝은 맵에서도 시인성을 높인다(≈0.5px 테두리).
+                Polyline(
+                    points = routeLatLngs,
+                    color = Color.White,
+                    width = 15f,
+                )
+                // 구간별 색상(뱅킹각 Roll) + 선 모양(속도)은 StyleSpan 으로 표현한다.
                 // 모든 점을 순서대로 포함하는 단일 Polyline 이라 색 경계에서 끊김이 없다.
                 Polyline(
                     points = routeLatLngs,
                     spans = routeSpans,
-                    width = 12f,
+                    width = 14f,
                 )
             }
             selectedLatLng?.let { point ->
@@ -643,7 +743,7 @@ fun LogScreenPreview() {
             // 초록
             Triple(LatLng(37.5700, 126.9950), 50f, 3f),
         )
-    val route = sample.map { RoutePoint(it.first, routeColor(it.second, it.third)) }
+    val route = sample.map { RoutePoint(it.first, routeColor(it.third, isDark = true), speedStyle(it.second)) }
     LogScreenContent(
         title = "SUNDAY MORNING TOUR",
         date = "MAY 25, 2026",
@@ -668,7 +768,7 @@ fun LogScreenSegmentPreview() {
         listOf(
             Triple(LatLng(37.5825, 127.0010), 60f, 5f),
         )
-    val route = sample.map { RoutePoint(it.first, routeColor(it.second, it.third)) }
+    val route = sample.map { RoutePoint(it.first, routeColor(it.third, isDark = true), speedStyle(it.second)) }
     LogScreenContent(
         title = "SUNDAY MORNING TOUR",
         date = "MAY 25, 2026",
