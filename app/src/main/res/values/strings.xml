@@ -139,4 +139,9 @@
     <string name="auto_stop_notif_text">Ride end detected due to sustained low speed.</string>
     <string name="auto_stop_notif_stop">Stop</string>
     <string name="auto_stop_notif_continue">Continue</string>
+    <string name="notif_channel_recording">Ride Recording</string>
+    <string name="notif_channel_auto_stop">Ride Auto-Stop</string>
+
+    <!-- Misc -->
+    <string name="press_back_again_to_exit">Press back again to exit.</string>
 </resources>
