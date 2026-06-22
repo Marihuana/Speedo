@@ -18,6 +18,17 @@ val mapsApiKey: String =
         }
     }.getProperty("MAPS_API_KEY", "")
 
+// keystore.properties(VCS 미커밋)에서 release 업로드 서명 설정을 읽어옵니다.
+// 파일이 없으면(예: CI, 디버그 전용 환경) 서명 설정을 붙이지 않습니다.
+val keystoreProps =
+    Properties().apply {
+        val f = rootProject.file("keystore.properties")
+        if (f.exists()) {
+            FileInputStream(f).use { load(it) }
+        }
+    }
+val hasReleaseKeystore = keystoreProps.getProperty("storeFile") != null
+
 android {
     namespace = "kr.yooreka.speedo"
     compileSdk = 36
@@ -39,6 +50,17 @@ android {
         buildConfigField("boolean", "ADS_ENABLED", "false")
     }
 
+    signingConfigs {
+        if (hasReleaseKeystore) {
+            create("release") {
+                storeFile = rootProject.file(keystoreProps.getProperty("storeFile"))
+                storePassword = keystoreProps.getProperty("storePassword")
+                keyAlias = keystoreProps.getProperty("keyAlias")
+                keyPassword = keystoreProps.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -46,6 +68,9 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
+            if (hasReleaseKeystore) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
     compileOptions {
