@@ -31,7 +31,7 @@
         <!-- AdMob App ID -->
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="ca-app-pub-2795413103045340~5565693611"/>
+            android:value="ca-app-pub-6147358897182409~6395163745"/>
 
         <service
             android:name=".service.RecordingService"

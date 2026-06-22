@@ -12,7 +12,7 @@ import kr.yooreka.speedo.BuildConfig
 @Composable
 fun BannerAd(
     modifier: Modifier = Modifier,
-    adUnitId: String = "ca-app-pub-2795413103045340/9893471342",
+    adUnitId: String = "ca-app-pub-6147358897182409/2455918735",
 ) {
     // 알파 기간 등 광고 비활성화(BuildConfig.ADS_ENABLED=false) 시 배너를 그리지 않는다.
     if (!BuildConfig.ADS_ENABLED) return
