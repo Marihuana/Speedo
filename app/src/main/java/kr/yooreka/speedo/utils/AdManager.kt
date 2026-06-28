@@ -24,7 +24,7 @@ class AdManager
 
         // Default Interstitial Test Ad Unit ID
         // If you have a specific interstitial ad unit ID, replace this here.
-        private val adUnitId = "ca-app-pub-3940256099942544/1033173712"
+        private val adUnitId = "ca-app-pub-6147358897182409/9540201834"
 
         fun loadInterstitialAd() {
             // 광고 비활성화(알파 등) 시 로드하지 않는다.
