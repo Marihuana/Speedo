@@ -1,37 +1,51 @@
 package kr.yooreka.speedo.ui.dashboard
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import kr.yooreka.speedo.ui.dashboard.components.SpeedometerCard
-import kr.yooreka.speedo.ui.dashboard.components.TPMSCard
-import kr.yooreka.speedo.ui.theme.*
-
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.Icon
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
-import kr.yooreka.speedo.R
-
-import androidx.compose.runtime.*
 import kotlinx.coroutines.flow.SharedFlow
+import kr.yooreka.speedo.R
+import kr.yooreka.speedo.ui.dashboard.components.AutoStopDialog
 import kr.yooreka.speedo.ui.dashboard.components.RecordingStartDialog
+import kr.yooreka.speedo.ui.dashboard.components.SpeedometerCard
+import kr.yooreka.speedo.ui.dashboard.components.TPMSCard
+import kr.yooreka.speedo.ui.theme.BackgroundBlack
+import kr.yooreka.speedo.ui.theme.GreenSuccess
+import kr.yooreka.speedo.ui.theme.NeonGreen
+import kr.yooreka.speedo.ui.theme.SpeedoTheme
 
 @Composable
 fun DashBoardScreen(
@@ -39,7 +53,9 @@ fun DashBoardScreen(
     uiEvent: SharedFlow<DashBoardUiEvent>,
     onRecordToggle: () -> Unit = {},
     onConfirmRecording: () -> Unit = {},
-    onShowInterstitial: () -> Unit = {}
+    onShowInterstitial: () -> Unit = {},
+    onAutoStopContinue: () -> Unit = {},
+    onAutoStopConfirm: () -> Unit = {},
 ) {
     var showStartDialog by remember { mutableStateOf(false) }
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -57,37 +73,41 @@ fun DashBoardScreen(
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(BackgroundBlack)
-                .padding(20.dp)
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .background(BackgroundBlack)
+                    .padding(20.dp),
         ) {
             DashBoardHeader(
                 isRecording = state.isRecording,
-                onRecordToggle = onRecordToggle
+                onRecordToggle = onRecordToggle,
             )
             SpeedometerCard(
                 speedKmh = state.speed,
                 leanAngle = state.roll,
                 speedUnit = state.speedUnit,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
+                isRecording = state.isRecording,
+                maxLeftRoll = state.maxLeftRoll,
+                maxRightRoll = state.maxRightRoll,
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
             )
             if (state.showTpmsData) {
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(16.dp))
                 TPMSCard(
-                    rearPressure = state.rearPressure, 
+                    rearPressure = state.rearPressure,
                     frontPressure = state.frontPressure,
-                    pressureUnit = state.pressureUnit,
-                    rearColor = state.rearPressureColor,
-                    frontColor = state.frontPressureColor,
                     rearTemp = state.rearTemp,
                     frontTemp = state.frontTemp,
                     rearBat = state.rearBat,
                     frontBat = state.frontBat,
-                    modifier = Modifier
-                        .fillMaxWidth()
+                    pressureUnit = state.pressureUnit,
+                    rearColor = state.rearPressureColor,
+                    frontColor = state.frontPressureColor,
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
         }
@@ -98,7 +118,15 @@ fun DashBoardScreen(
                 onConfirm = {
                     showStartDialog = false
                     onConfirmRecording()
-                }
+                },
+            )
+        }
+
+        // 주행 종료 예상 감지(F-18): 포그라운드일 때 확인 다이얼로그 표시.
+        if (state.autoStopSuggested) {
+            AutoStopDialog(
+                onContinue = onAutoStopContinue,
+                onStop = onAutoStopConfirm,
             )
         }
     }
@@ -107,14 +135,16 @@ fun DashBoardScreen(
 @Composable
 fun DashBoardHeader(
     isRecording: Boolean,
-    onRecordToggle: () -> Unit
+    onRecordToggle: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 8.dp, bottom = 20.dp),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .padding(top = 8.dp, bottom = 20.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         Column {
             Text(
@@ -122,39 +152,41 @@ fun DashBoardHeader(
                 color = NeonGreen,
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Black,
-                letterSpacing = (-0.5).sp
+                letterSpacing = (-0.53).sp,
             )
             Text(
                 text = stringResource(R.string.dashboard_subtitle),
-                color = SlateSubText,
+                color = Color(0xFF62748E),
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
-                letterSpacing = 0.6.sp
+                letterSpacing = 0.6.sp,
             )
         }
 
         Button(
             onClick = onRecordToggle,
-            colors = ButtonDefaults.buttonColors(
-                containerColor = if (isRecording) Color(0xFFFB2C36) else NeonGreen,
-                contentColor = if (isRecording) Color.White else Color.Black
-            ),
+            colors =
+                ButtonDefaults.buttonColors(
+                    containerColor = if (isRecording) Color(0xFFFB2C36) else NeonGreen,
+                    contentColor = if (isRecording) Color.White else Color.Black,
+                ),
             shape = RoundedCornerShape(16.dp),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp)
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
         ) {
             Icon(
-                painter = painterResource(
-                    id = if (isRecording) R.drawable.ic_stop else R.drawable.ic_play
-                ),
-                contentDescription = if (isRecording) "Stop" else "Start",
-                modifier = Modifier.size(16.dp)
+                painter =
+                    painterResource(
+                        id = if (isRecording) R.drawable.ic_stop else R.drawable.ic_play,
+                    ),
+                contentDescription = if (isRecording) stringResource(R.string.cd_stop) else stringResource(R.string.cd_start),
+                modifier = Modifier.size(16.dp),
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = if (isRecording) "정지" else "기록",
+                text = if (isRecording) stringResource(R.string.record_button_stop) else stringResource(R.string.record_button_start),
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Black,
-                letterSpacing = 0.3.sp
+                letterSpacing = 0.3.sp,
             )
         }
     }
@@ -185,12 +217,15 @@ fun DashBoardHeaderRecordingPreview() {
 fun DashBoardScreenBasicPreview() {
     SpeedoTheme {
         DashBoardScreen(
-            state = DashBoardState(
-                speed = "80",
-                roll = "19°",
-                showTpmsData = false
-            ),
-            uiEvent = kotlinx.coroutines.flow.MutableSharedFlow()
+            state =
+                DashBoardState(
+                    speed = "80",
+                    roll = "19°",
+                    showTpmsData = false,
+                    maxLeftRoll = "0°",
+                    maxRightRoll = "0°",
+                ),
+            uiEvent = kotlinx.coroutines.flow.MutableSharedFlow(),
         )
     }
 }
@@ -200,20 +235,23 @@ fun DashBoardScreenBasicPreview() {
 fun DashBoardScreenWithTpmsPreview() {
     SpeedoTheme {
         DashBoardScreen(
-            state = DashBoardState(
-                speed = "61",
-                roll = "19°",
-                showTpmsData = true,
-                frontPressure = "36.2",
-                rearPressure = "38.5",
-                frontTemp = "42°",
-                rearTemp = "45°",
-                frontBat = "2.8V",
-                rearBat = "2.7V",
-                frontPressureColor = GreenSuccess,
-                rearPressureColor = GreenSuccess
-            ),
-            uiEvent = kotlinx.coroutines.flow.MutableSharedFlow()
+            state =
+                DashBoardState(
+                    speed = "61",
+                    roll = "19°",
+                    showTpmsData = true,
+                    frontPressure = "36.2",
+                    rearPressure = "38.5",
+                    frontTemp = "42°",
+                    rearTemp = "45°",
+                    frontBat = "2.8V",
+                    rearBat = "2.7V",
+                    frontPressureColor = GreenSuccess,
+                    rearPressureColor = GreenSuccess,
+                    maxLeftRoll = "0°",
+                    maxRightRoll = "0°",
+                ),
+            uiEvent = kotlinx.coroutines.flow.MutableSharedFlow(),
         )
     }
 }
@@ -223,7 +261,7 @@ fun DashBoardScreenWithTpmsPreview() {
 fun DashBoardScreenRecordingPreview() {
     SpeedoTheme {
         DashBoardScreen(
-            state = DashBoardState(
+            DashBoardState(
                 speed = "101",
                 roll = "4°",
                 isRecording = true,
@@ -235,9 +273,30 @@ fun DashBoardScreenRecordingPreview() {
                 frontBat = "2.8V",
                 rearBat = "2.7V",
                 frontPressureColor = GreenSuccess,
-                rearPressureColor = GreenSuccess
+                rearPressureColor = GreenSuccess,
+                maxLeftRoll = "24°",
+                maxRightRoll = "28°",
             ),
-            uiEvent = kotlinx.coroutines.flow.MutableSharedFlow()
+            uiEvent = kotlinx.coroutines.flow.MutableSharedFlow(),
+        )
+    }
+}
+
+@Preview(showBackground = true, name = "Dashboard - Recording No TPMS")
+@Composable
+fun DashBoardScreenRecordingNoTpmsPreview() {
+    SpeedoTheme {
+        DashBoardScreen(
+            state =
+                DashBoardState(
+                    speed = "105",
+                    roll = "8°",
+                    isRecording = true,
+                    showTpmsData = false,
+                    maxLeftRoll = "28°",
+                    maxRightRoll = "32°",
+                ),
+            uiEvent = kotlinx.coroutines.flow.MutableSharedFlow(),
         )
     }
 }

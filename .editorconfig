@@ -1,0 +1,6 @@
+root = true
+
+[*.{kt,kts}]
+# Jetpack Compose의 @Composable 함수는 PascalCase 네이밍이 공식 컨벤션이므로
+# ktlint 함수 네이밍 규칙에서 제외합니다.
+ktlint_function_naming_ignore_when_annotated_with = Composable

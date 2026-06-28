@@ -1,134 +1,142 @@
 package kr.yooreka.speedo.ui.dashboard
 
-import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kr.yooreka.speedo.domain.usecase.GetDashboardTelemetryUseCase
-import kr.yooreka.speedo.data.local.preferences.UserPreferencesRepository
-import kr.yooreka.speedo.domain.model.TpmsData
-import kr.yooreka.speedo.domain.repository.SensorRepository
-import kr.yooreka.speedo.domain.repository.TelemetryRepository
-import kr.yooreka.speedo.ui.theme.DangerRed
-import kr.yooreka.speedo.ui.theme.GreenSuccess
-import kr.yooreka.speedo.ui.theme.SlateText
-import kr.yooreka.speedo.data.billing.BillingRepository
-import kr.yooreka.speedo.ui.theme.WarningYellow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.stateIn
-import javax.inject.Inject
-
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.sample
-
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kr.yooreka.speedo.data.local.preferences.UserPreferencesRepository
+import kr.yooreka.speedo.domain.model.LeanConfidence
+import kr.yooreka.speedo.domain.repository.BillingRepository
+import kr.yooreka.speedo.domain.repository.TelemetryRepository
+import kr.yooreka.speedo.domain.usecase.GetDashboardTelemetryUseCase
+import kr.yooreka.speedo.utils.displaySpeedInt
+import kr.yooreka.speedo.utils.formatLeanAngle
+import javax.inject.Inject
 
 sealed class DashBoardUiEvent {
     object ShowStartDialog : DashBoardUiEvent()
+
     object ShowInterstitialAd : DashBoardUiEvent()
 }
 
 @HiltViewModel
-class DashBoardViewModel @Inject constructor(
-    private val getDashboardTelemetryUseCase: GetDashboardTelemetryUseCase,
-    private val userPreferencesRepository: UserPreferencesRepository,
-    private val tpmsRepository: SensorRepository<TpmsData>,
-    private val telemetryRepository: TelemetryRepository,
-    private val billingRepository: BillingRepository
-) : ViewModel() {
+class DashBoardViewModel
+    @Inject
+    constructor(
+        private val getDashboardTelemetryUseCase: GetDashboardTelemetryUseCase,
+        private val userPreferencesRepository: UserPreferencesRepository,
+        private val telemetryRepository: TelemetryRepository,
+        private val billingRepository: BillingRepository,
+    ) : ViewModel() {
+        private val _uiEvent = MutableSharedFlow<DashBoardUiEvent>()
+        val uiEvent = _uiEvent.asSharedFlow()
 
-    private val _uiEvent = MutableSharedFlow<DashBoardUiEvent>()
-    val uiEvent = _uiEvent.asSharedFlow()
+        // 세션 최대 기울기(F: MAX L/R). 부호 규약: 양수=좌(L), 음수=우(R).
+        // 기록 중에만 누적하고 기록 시작 시 0 으로 초기화한다.
+        private val maxLeftRoll = MutableStateFlow(0f)
+        private val maxRightRoll = MutableStateFlow(0f)
+        private val maxRollFlow = combine(maxLeftRoll, maxRightRoll) { left, right -> left to right }
 
-    init {
-        getDashboardTelemetryUseCase.start()
-        tpmsRepository.start()
-    }
-
-    private fun getPressureColor(current: Float, baseline: Float): Color {
-        if (current <= 0f) return SlateText // Fallback when no data
-        
-        val diffPercent = ((current - baseline) / baseline) * 100f
-        
-        return when {
-            diffPercent in -5f..15f -> GreenSuccess
-            diffPercent in -15f..25f -> WarningYellow // This falls through if not in -5..15
-            else -> DangerRed
+        // TPMS 는 이번 버전 비활성화(F-07): BLE 스캔을 시작하지 않고 대시보드에 노출하지 않는다.
+        // 백엔드(TpmsRepository/DataSource)와 데이터 모델은 추후 재도입을 위해 보존한다.
+        init {
+            getDashboardTelemetryUseCase.start()
+            // 기록 중 세션 최대 좌/우 뱅킹각 누적. 기록이 멈추면 collectLatest 가 내부 수집을 취소한다.
+            viewModelScope.launch {
+                telemetryRepository.isRecording.collectLatest { recording ->
+                    if (!recording) return@collectLatest
+                    maxLeftRoll.value = 0f
+                    maxRightRoll.value = 0f
+                    getDashboardTelemetryUseCase().collect { data ->
+                        // 물리 가드(F-03b): L/R 최대각은 VALID 데이터만 갱신한다. 극저속/이상치(정차 폰 조작 등)는
+                        // 현재 뱅킹각엔 즉각 반영되지만 최대치 카드는 갱신하지 않는다.
+                        if (data.leanConfidence != LeanConfidence.VALID) return@collect
+                        val roll = data.roll
+                        when {
+                            roll > 0f -> if (roll > maxLeftRoll.value) maxLeftRoll.value = roll
+                            roll < 0f -> if (-roll > maxRightRoll.value) maxRightRoll.value = -roll
+                        }
+                    }
+                }
+            }
         }
-    }
 
-    @OptIn(kotlinx.coroutines.FlowPreview::class)
-    val uiState: StateFlow<DashBoardState> = combine(
-        getDashboardTelemetryUseCase().sample(100L),
-        telemetryRepository.isRecording,
-        userPreferencesRepository.userPreferencesFlow,
-        tpmsRepository.dataStream
-    ) { data, recording, prefs, tpms ->
-        // Convert speed if unit is MPH
-        val displaySpeed = if (prefs.speedUnit == "MPH") {
-            (data.speed * 0.621371f).toInt()
-        } else {
-            data.speed.toInt()
+        @OptIn(kotlinx.coroutines.FlowPreview::class)
+        val uiState: StateFlow<DashBoardState> =
+            combine(
+                getDashboardTelemetryUseCase().sample(100L),
+                telemetryRepository.isRecording,
+                userPreferencesRepository.userPreferencesFlow,
+                telemetryRepository.autoStopSuggested,
+                maxRollFlow,
+            ) { data, recording, prefs, autoStop, maxRoll ->
+                // 속도 단위 변환(F-02): 오버레이와 동일한 공용 변환점을 사용한다.
+                val displaySpeed = displaySpeedInt(data.speed, prefs.speedUnit)
+
+                // TPMS 관련 필드(showTpmsData/압력/온도/전압/색상)는 채우지 않는다(비활성화, 기본값 유지).
+                DashBoardState(
+                    speed = displaySpeed.toString(),
+                    roll = formatLeanAngle(data.roll),
+                    brakeEvent = data.brakeEvent,
+                    isRecording = recording,
+                    speedUnit = prefs.speedUnit,
+                    autoStopSuggested = autoStop,
+                    maxLeftRoll = formatLeanAngle(maxRoll.first),
+                    maxRightRoll = formatLeanAngle(maxRoll.second),
+                )
+            }
+                .stateIn(
+                    scope = viewModelScope,
+                    started = SharingStarted.WhileSubscribed(5000),
+                    initialValue = DashBoardState(),
+                )
+
+        fun toggleRecording() {
+            viewModelScope.launch {
+                // Check current state from repository flow
+                val currentlyRecording = telemetryRepository.isRecording.first()
+                if (currentlyRecording) {
+                    getDashboardTelemetryUseCase.stopRecording()
+                    if (!billingRepository.isAdRemoved.value) {
+                        _uiEvent.emit(DashBoardUiEvent.ShowInterstitialAd)
+                    }
+                } else {
+                    _uiEvent.emit(DashBoardUiEvent.ShowStartDialog)
+                }
+            }
         }
 
-        // Calculate colors based on PSI baselines (Front: 36, Rear: 40)
-        val frontColor = getPressureColor(tpms.frontPressurePsi, 36f)
-        val rearColor = getPressureColor(tpms.rearPressurePsi, 40f)
+        fun onConfirmRecording() {
+            getDashboardTelemetryUseCase.startRecording()
+        }
 
-        // Convert TPMS if unit is BAR, but keep checking logic in PSI
-        val displayRear = if (prefs.pressureUnit == "BAR") String.format("%.1f", tpms.rearPressurePsi * 0.0689476f) else String.format("%.1f", tpms.rearPressurePsi)
-        val displayFront = if (prefs.pressureUnit == "BAR") String.format("%.1f", tpms.frontPressurePsi * 0.0689476f) else String.format("%.1f", tpms.frontPressurePsi)
+        /** 주행 종료 예상 다이얼로그 '아니오'(계속): 감지 타이머만 초기화하고 기록 유지(F-18). */
+        fun onAutoStopContinue() {
+            telemetryRepository.continueRide()
+        }
 
-        DashBoardState(
-            speed = displaySpeed.toString(),
-            roll = "${data.roll.toInt()}°",
-            brakeEvent = data.brakeEvent,
-            isRecording = recording,
-            speedUnit = prefs.speedUnit,
-            pressureUnit = prefs.pressureUnit,
-            showTpmsData = prefs.showTpmsData,
-            rearPressure = displayRear,
-            frontPressure = displayFront,
-            rearTemp = "${tpms.rearTemperature.toInt()}°",
-            frontTemp = "${tpms.frontTemperature.toInt()}°",
-            rearBat = String.format("%.1fV", tpms.rearBatteryVoltage),
-            frontBat = String.format("%.1fV", tpms.frontBatteryVoltage),
-            rearPressureColor = rearColor,
-            frontPressureColor = frontColor
-        )
-    }
-    .stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = DashBoardState()
-    )
-
-    fun toggleRecording() {
-        viewModelScope.launch {
-            // Check current state from repository flow
-            val currentlyRecording = telemetryRepository.isRecording.first()
-            if (currentlyRecording) {
+        /** 주행 종료 예상 다이얼로그 '예'(종료): 기록을 종료한다(+광고 노출). */
+        fun onAutoStopConfirm() {
+            viewModelScope.launch {
                 getDashboardTelemetryUseCase.stopRecording()
                 if (!billingRepository.isAdRemoved.value) {
                     _uiEvent.emit(DashBoardUiEvent.ShowInterstitialAd)
                 }
-            } else {
-                _uiEvent.emit(DashBoardUiEvent.ShowStartDialog)
             }
         }
-    }
 
-    fun onConfirmRecording() {
-        getDashboardTelemetryUseCase.startRecording()
+        override fun onCleared() {
+            super.onCleared()
+            getDashboardTelemetryUseCase.stop()
+        }
     }
-
-    override fun onCleared() {
-        super.onCleared()
-        getDashboardTelemetryUseCase.stop()
-        tpmsRepository.stop()
-    }
-}

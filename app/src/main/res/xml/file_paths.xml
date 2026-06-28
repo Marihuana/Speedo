@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- 앱 전용 외부 저장소의 lean 진단 CSV 디렉터리(F-03). -->
+    <external-files-path
+        name="lean_diag"
+        path="lean_diag/" />
+</paths>

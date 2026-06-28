@@ -12,7 +12,6 @@ package kr.yooreka.speedo.data.sensor.datasource
  * 안드로이드 프레임워크에 의존하지 않도록 원시 값만 인자로 받는다.
  */
 object SpeedResolver {
-
     /** 약 2.5km/h. 이 미만은 정지로 간주. */
     const val MIN_SPEED_MPS = 0.7f
 
@@ -20,7 +19,7 @@ object SpeedResolver {
         hasSpeed: Boolean,
         speedMps: Float,
         hasSpeedAccuracy: Boolean,
-        speedAccuracyMps: Float
+        speedAccuracyMps: Float,
     ): Float {
         if (!hasSpeed) return 0f
         if (hasSpeedAccuracy && speedMps <= speedAccuracyMps) return 0f

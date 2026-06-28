@@ -1,0 +1,38 @@
+package kr.yooreka.speedo.fake
+
+import android.app.Activity
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kr.yooreka.speedo.domain.model.SubscriptionPlan
+import kr.yooreka.speedo.domain.repository.BillingRepository
+
+/**
+ * [BillingRepository] Fake. 결제/Play Billing 없이 광고 제거 상태를 제어한다.
+ */
+class FakeBillingRepository(
+    initialAdRemoved: Boolean = false,
+) : BillingRepository {
+    private val _isAdRemoved = MutableStateFlow(initialAdRemoved)
+    override val isAdRemoved: StateFlow<Boolean> = _isAdRemoved
+
+    private val _subscriptionPlans = MutableStateFlow<List<SubscriptionPlan>>(emptyList())
+    override val subscriptionPlans: StateFlow<List<SubscriptionPlan>> = _subscriptionPlans
+
+    var launchCount = 0
+        private set
+
+    fun setAdRemoved(value: Boolean) {
+        _isAdRemoved.value = value
+    }
+
+    fun setSubscriptionPlans(plans: List<SubscriptionPlan>) {
+        _subscriptionPlans.value = plans
+    }
+
+    override fun launchBillingFlow(
+        activity: Activity,
+        plan: SubscriptionPlan,
+    ) {
+        launchCount++
+    }
+}

@@ -1,109 +1,63 @@
 package kr.yooreka.speedo.domain.usecase
 
-import kr.yooreka.speedo.domain.model.AccelerometerData
-import kr.yooreka.speedo.domain.model.BrakeEvent
-import kr.yooreka.speedo.domain.model.GravityData
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
+import kr.yooreka.speedo.domain.model.LeanPhysicsGuard
 import kr.yooreka.speedo.domain.model.LocationData
 import kr.yooreka.speedo.domain.model.TelemetryData
 import kr.yooreka.speedo.domain.repository.LeanCalibrationRepository
+import kr.yooreka.speedo.domain.repository.LeanMeasurement
 import kr.yooreka.speedo.domain.repository.SensorRepository
 import kr.yooreka.speedo.domain.repository.TelemetryRepository
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.scan
+import kr.yooreka.speedo.domain.repository.YawRateMeasurement
 import javax.inject.Inject
-import kotlin.math.abs
 
-class GetDashboardTelemetryUseCase @Inject constructor(
-    private val telemetryRepository: TelemetryRepository,
-    private val accelRepo: SensorRepository<AccelerometerData>,
-    private val gravityRepo: SensorRepository<GravityData>,
-    private val locationRepo: SensorRepository<LocationData>,
-    private val calibrationRepository: LeanCalibrationRepository
-) {
-    companion object {
-        private const val BRAKE_THRESHOLD = 3.5f
-        private const val BRAKE_COOLDOWN_MS = 2000L
-        private const val ALPHA = 0.8f
-    }
-
-    private data class BrakeState(
-        val filteredY: Float = 0f,
-        val prevAccelY: Float = 0f,
-        val lastBrakeTimeMs: Long = 0L,
-        val isFirst: Boolean = true,
-        val event: BrakeEvent = BrakeEvent.NONE,
-        val force: Float = 0f
-    )
-
-    operator fun invoke(): Flow<TelemetryData> {
-        val brakeFlow = accelRepo.dataStream.scan(BrakeState()) { state, accel ->
-            val rawY = accel.y
-            if (state.isFirst) {
-                state.copy(
-                    filteredY = rawY,
-                    prevAccelY = rawY,
-                    isFirst = false,
-                    event = BrakeEvent.NONE,
-                    force = 0f
-                )
-            } else {
-                val filtered = ALPHA * rawY + (1 - ALPHA) * state.filteredY
-                val delta = abs(filtered - state.prevAccelY)
-                val now = accel.timestamp.takeIf { it > 0 } ?: System.currentTimeMillis()
-                val cooldownPassed = (now - state.lastBrakeTimeMs) > BRAKE_COOLDOWN_MS
-
-                var event = BrakeEvent.NONE
-                var lastTime = state.lastBrakeTimeMs
-                if (delta >= BRAKE_THRESHOLD && cooldownPassed) {
-                    event = when {
-                        delta >= BRAKE_THRESHOLD * 2.0f -> BrakeEvent.HARD
-                        delta >= BRAKE_THRESHOLD * 1.4f -> BrakeEvent.MODERATE
-                        else                            -> BrakeEvent.LIGHT
-                    }
-                    lastTime = now
-                }
-
-                state.copy(
-                    filteredY = filtered,
-                    prevAccelY = filtered,
-                    lastBrakeTimeMs = lastTime,
-                    event = event,
-                    force = delta
+class GetDashboardTelemetryUseCase
+    @Inject
+    constructor(
+        private val telemetryRepository: TelemetryRepository,
+        private val leanMeasurement: LeanMeasurement,
+        private val locationRepo: SensorRepository<LocationData>,
+        private val calibrationRepository: LeanCalibrationRepository,
+        private val yawRateMeasurement: YawRateMeasurement,
+    ) {
+        operator fun invoke(): Flow<TelemetryData> =
+            // 제동 판정은 Repository 가 상시 보유하는 단일 소스(brakeStream)를 구독한다.
+            // 대시보드 표시값과 주행 로그 저장값이 동일 소스를 쓰도록 보장하기 위함이다.
+            // lean 은 활성 측정 전략(F-03)의 raw roll 에 영점 offset 을 적용한다. NaN(데이터 없음)은 0 처리.
+            combine(
+                telemetryRepository.brakeStream,
+                leanMeasurement.leanStream,
+                locationRepo.dataStream,
+                calibrationRepository.offsetDegrees,
+                yawRateMeasurement.yawRateStream,
+            ) { brake, lean, locationData, offset, yawRate ->
+                val roll = if (lean.isNaN()) 0f else lean - offset
+                // 표시값(현재 뱅킹각)은 원시 roll 을 그대로 유지하고(PRD §4.1), 물리 가드(F-03b)로는
+                // 신뢰도만 판정해 L/R 최대각 갱신 여부에만 사용한다.
+                val confidence = LeanPhysicsGuard.evaluate(roll, locationData.speed, yawRate).confidence
+                TelemetryData(
+                    speed = locationData.speed,
+                    roll = roll,
+                    brakeEvent = brake.event,
+                    brakeForce = brake.force,
+                    leanConfidence = confidence,
                 )
             }
+
+        fun start() {
+            telemetryRepository.startTelemetry()
         }
 
-        return combine(
-            brakeFlow,
-            gravityRepo.dataStream,
-            locationRepo.dataStream,
-            calibrationRepository.offsetDegrees
-        ) { brakeState, gravity, locationData, offset ->
-            val roll = gravity.calibratedRoll(offset)
+        fun stop() {
+            telemetryRepository.stopTelemetry()
+        }
 
-            TelemetryData(
-                speed = locationData.speed,
-                roll = roll,
-                brakeEvent = brakeState.event,
-                brakeForce = brakeState.force
-            )
+        fun startRecording() {
+            telemetryRepository.startRecording()
+        }
+
+        fun stopRecording() {
+            telemetryRepository.stopRecording()
         }
     }
-
-    fun start() {
-        telemetryRepository.startTelemetry()
-    }
-
-    fun stop() {
-        telemetryRepository.stopTelemetry()
-    }
-
-    fun startRecording() {
-        telemetryRepository.startRecording()
-    }
-
-    fun stopRecording() {
-        telemetryRepository.stopRecording()
-    }
-}

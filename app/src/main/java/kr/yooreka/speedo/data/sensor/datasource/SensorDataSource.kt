@@ -7,6 +7,8 @@ import kotlinx.coroutines.flow.StateFlow
  */
 interface SensorDataSource<T> {
     val dataFlow: StateFlow<T>
+
     fun start()
+
     fun stop()
 }
