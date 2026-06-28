@@ -25,4 +25,6 @@ data class DashBoardState(
     val showTpmsData: Boolean = false,
     // 주행 종료 예상 감지(F-18): true 면 종료 확인 다이얼로그를 표시한다.
     val autoStopSuggested: Boolean = false,
+    val maxLeftRoll: String = "0°",
+    val maxRightRoll: String = "0°",
 )

@@ -7,7 +7,7 @@ import kr.yooreka.speedo.data.local.dao.TelemetryDao
 import kr.yooreka.speedo.data.local.entity.RideEntity
 import kr.yooreka.speedo.data.local.entity.TelemetryEntity
 
-@Database(entities = [TelemetryEntity::class, RideEntity::class], version = 3, exportSchema = false)
+@Database(entities = [TelemetryEntity::class, RideEntity::class], version = 4, exportSchema = false)
 abstract class SpeedoDatabase : RoomDatabase() {
     abstract fun telemetryDao(): TelemetryDao
 

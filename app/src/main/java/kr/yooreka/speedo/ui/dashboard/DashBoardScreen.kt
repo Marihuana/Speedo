@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -40,10 +41,10 @@ import kr.yooreka.speedo.R
 import kr.yooreka.speedo.ui.dashboard.components.AutoStopDialog
 import kr.yooreka.speedo.ui.dashboard.components.RecordingStartDialog
 import kr.yooreka.speedo.ui.dashboard.components.SpeedometerCard
+import kr.yooreka.speedo.ui.dashboard.components.TPMSCard
 import kr.yooreka.speedo.ui.theme.BackgroundBlack
 import kr.yooreka.speedo.ui.theme.GreenSuccess
 import kr.yooreka.speedo.ui.theme.NeonGreen
-import kr.yooreka.speedo.ui.theme.SlateSubText
 import kr.yooreka.speedo.ui.theme.SpeedoTheme
 
 @Composable
@@ -86,12 +87,29 @@ fun DashBoardScreen(
                 speedKmh = state.speed,
                 leanAngle = state.roll,
                 speedUnit = state.speedUnit,
+                isRecording = state.isRecording,
+                maxLeftRoll = state.maxLeftRoll,
+                maxRightRoll = state.maxRightRoll,
                 modifier =
                     Modifier
                         .fillMaxWidth()
                         .weight(1f),
             )
-            // TPMS 카드는 이번 버전 비활성화(F-07)로 노출하지 않는다(백엔드/모델은 보존).
+            if (state.showTpmsData) {
+                Spacer(modifier = Modifier.height(16.dp))
+                TPMSCard(
+                    rearPressure = state.rearPressure,
+                    frontPressure = state.frontPressure,
+                    rearTemp = state.rearTemp,
+                    frontTemp = state.frontTemp,
+                    rearBat = state.rearBat,
+                    frontBat = state.frontBat,
+                    pressureUnit = state.pressureUnit,
+                    rearColor = state.rearPressureColor,
+                    frontColor = state.frontPressureColor,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
         }
 
         if (showStartDialog) {
@@ -118,10 +136,11 @@ fun DashBoardScreen(
 fun DashBoardHeader(
     isRecording: Boolean,
     onRecordToggle: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Row(
         modifier =
-            Modifier
+            modifier
                 .fillMaxWidth()
                 .padding(top = 8.dp, bottom = 20.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -133,11 +152,11 @@ fun DashBoardHeader(
                 color = NeonGreen,
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Black,
-                letterSpacing = (-0.5).sp,
+                letterSpacing = (-0.53).sp,
             )
             Text(
                 text = stringResource(R.string.dashboard_subtitle),
-                color = SlateSubText,
+                color = Color(0xFF62748E),
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 0.6.sp,
@@ -203,6 +222,8 @@ fun DashBoardScreenBasicPreview() {
                     speed = "80",
                     roll = "19°",
                     showTpmsData = false,
+                    maxLeftRoll = "0°",
+                    maxRightRoll = "0°",
                 ),
             uiEvent = kotlinx.coroutines.flow.MutableSharedFlow(),
         )
@@ -227,6 +248,8 @@ fun DashBoardScreenWithTpmsPreview() {
                     rearBat = "2.7V",
                     frontPressureColor = GreenSuccess,
                     rearPressureColor = GreenSuccess,
+                    maxLeftRoll = "0°",
+                    maxRightRoll = "0°",
                 ),
             uiEvent = kotlinx.coroutines.flow.MutableSharedFlow(),
         )
@@ -238,20 +261,40 @@ fun DashBoardScreenWithTpmsPreview() {
 fun DashBoardScreenRecordingPreview() {
     SpeedoTheme {
         DashBoardScreen(
+            DashBoardState(
+                speed = "101",
+                roll = "4°",
+                isRecording = true,
+                showTpmsData = true,
+                frontPressure = "36.2",
+                rearPressure = "38.5",
+                frontTemp = "42°",
+                rearTemp = "45°",
+                frontBat = "2.8V",
+                rearBat = "2.7V",
+                frontPressureColor = GreenSuccess,
+                rearPressureColor = GreenSuccess,
+                maxLeftRoll = "24°",
+                maxRightRoll = "28°",
+            ),
+            uiEvent = kotlinx.coroutines.flow.MutableSharedFlow(),
+        )
+    }
+}
+
+@Preview(showBackground = true, name = "Dashboard - Recording No TPMS")
+@Composable
+fun DashBoardScreenRecordingNoTpmsPreview() {
+    SpeedoTheme {
+        DashBoardScreen(
             state =
                 DashBoardState(
-                    speed = "101",
-                    roll = "4°",
+                    speed = "105",
+                    roll = "8°",
                     isRecording = true,
-                    showTpmsData = true,
-                    frontPressure = "36.2",
-                    rearPressure = "38.5",
-                    frontTemp = "42°",
-                    rearTemp = "45°",
-                    frontBat = "2.8V",
-                    rearBat = "2.7V",
-                    frontPressureColor = GreenSuccess,
-                    rearPressureColor = GreenSuccess,
+                    showTpmsData = false,
+                    maxLeftRoll = "28°",
+                    maxRightRoll = "32°",
                 ),
             uiEvent = kotlinx.coroutines.flow.MutableSharedFlow(),
         )

@@ -1,7 +1,12 @@
 package kr.yooreka.speedo.ui.settings
 
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -24,18 +29,26 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -52,6 +65,10 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kr.yooreka.speedo.R
 import kr.yooreka.speedo.domain.model.LeanMode
+import kr.yooreka.speedo.domain.model.OverlayMode
+import kr.yooreka.speedo.domain.model.OverlaySettings
+import kr.yooreka.speedo.domain.model.OverlaySize
+import kr.yooreka.speedo.domain.model.SubscriptionPlan
 import kr.yooreka.speedo.ui.components.BannerAd
 import kr.yooreka.speedo.ui.theme.BackgroundBlack
 import kr.yooreka.speedo.ui.theme.NeonGreen
@@ -67,6 +84,31 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
     // 콜백(비 Composable 람다)에서 사용하기 위해 문자열 리소스를 미리 읽어 둔다.
     val calibrationResetMessage = stringResource(R.string.calibration_reset)
 
+    // 오버레이 권한 안내 다이얼로그 표시 여부(F-19, §4.4).
+    var showOverlayRationale by remember { mutableStateOf(false) }
+    // 권한 설정 화면에서 돌아온 뒤 허용되었으면 오버레이를 켠다.
+    val overlayPermissionLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+            if (Settings.canDrawOverlays(context)) {
+                viewModel.updateOverlayEnabled(true)
+            }
+        }
+
+    if (showOverlayRationale) {
+        OverlayPermissionDialog(
+            onConfirm = {
+                showOverlayRationale = false
+                overlayPermissionLauncher.launch(
+                    Intent(
+                        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                        Uri.parse("package:${context.packageName}"),
+                    ),
+                )
+            },
+            onDismiss = { showOverlayRationale = false },
+        )
+    }
+
     SettingsContent(
         speedUnit = state.speedUnit,
         onSpeedUnitChange = { viewModel.updateSpeedUnit(it) },
@@ -77,9 +119,10 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
             Toast.makeText(context, calibrationResetMessage, Toast.LENGTH_SHORT).show()
         },
         isAdRemoved = state.isAdRemoved,
-        onPurchaseRemoveAds = {
+        subscriptionPlans = state.subscriptionPlans,
+        onPurchasePlan = { plan ->
             (context as? android.app.Activity)?.let { activity ->
-                viewModel.purchaseRemoveAds(activity)
+                viewModel.purchasePlan(activity, plan)
             }
         },
         selectedLeanMode = state.leanMeasurementMode,
@@ -87,6 +130,18 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
         onExportDiagnostics = { shareDiagnosticCsv(context, viewModel.diagnosticCsvFiles()) },
         autoStopThresholdMin = state.autoStopThresholdMin,
         onAutoStopThresholdChange = { viewModel.updateAutoStopThreshold(it) },
+        overlaySettings = state.overlaySettings,
+        onOverlayEnabledChange = { enabled ->
+            // 켜는데 권한이 없으면 안내 다이얼로그 → 시스템 설정 이동(§4.4). 끄는 동작은 즉시 반영.
+            if (enabled && !Settings.canDrawOverlays(context)) {
+                showOverlayRationale = true
+            } else {
+                viewModel.updateOverlayEnabled(enabled)
+            }
+        },
+        onOverlayModeChange = { viewModel.updateOverlayMode(it) },
+        onOverlaySizeChange = { viewModel.updateOverlaySize(it) },
+        onOverlayOpacityChange = { viewModel.updateOverlayOpacity(it) },
     )
 }
 
@@ -127,12 +182,18 @@ fun SettingsContent(
     onCalibrateClick: () -> Unit = {},
     onResetCalibration: () -> Unit = {},
     isAdRemoved: Boolean = false,
-    onPurchaseRemoveAds: () -> Unit = {},
+    subscriptionPlans: List<SubscriptionPlan> = emptyList(),
+    onPurchasePlan: (SubscriptionPlan) -> Unit = {},
     selectedLeanMode: LeanMode = LeanMode.DEFAULT,
     onLeanModeChange: (LeanMode) -> Unit = {},
     onExportDiagnostics: () -> Unit = {},
     autoStopThresholdMin: Int = 5,
     onAutoStopThresholdChange: (Int) -> Unit = {},
+    overlaySettings: OverlaySettings = OverlaySettings(),
+    onOverlayEnabledChange: (Boolean) -> Unit = {},
+    onOverlayModeChange: (OverlayMode) -> Unit = {},
+    onOverlaySizeChange: (OverlaySize) -> Unit = {},
+    onOverlayOpacityChange: (Int) -> Unit = {},
 ) {
     Column(
         modifier =
@@ -175,15 +236,26 @@ fun SettingsContent(
                     thresholdMin = autoStopThresholdMin,
                     onThresholdChange = onAutoStopThresholdChange,
                 )
+                OverlayCard(
+                    settings = overlaySettings,
+                    onEnabledChange = onOverlayEnabledChange,
+                    onModeChange = onOverlayModeChange,
+                    onSizeChange = onOverlaySizeChange,
+                    onOpacityChange = onOverlayOpacityChange,
+                )
             }
 
-            if (!isAdRemoved) {
-                Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(32.dp))
 
-                // Account & Upgrades Section
-                SettingsSectionHeader(title = stringResource(R.string.section_account), iconRes = kr.yooreka.speedo.R.drawable.ic_premium)
+            // Account & Upgrades Section
+            SettingsSectionHeader(title = stringResource(R.string.section_account), iconRes = kr.yooreka.speedo.R.drawable.ic_premium)
+            if (isAdRemoved) {
+                // 구독 중: 활성 상태 안내 카드.
+                PremiumActiveCard()
+            } else {
                 PremiumCard(
-                    onPurchaseClick = onPurchaseRemoveAds,
+                    plans = subscriptionPlans,
+                    onPurchasePlan = onPurchasePlan,
                 )
             }
 
@@ -217,8 +289,67 @@ fun SettingsContent(
     }
 }
 
+/** 구독(광고 제거) 활성 상태 안내 카드. `isAdRemoved=true` 일 때 노출. */
 @Composable
-fun PremiumCard(onPurchaseClick: () -> Unit) {
+fun PremiumActiveCard(modifier: Modifier = Modifier) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        border = BorderStroke(0.6.dp, Color(0xFFFE9A00).copy(alpha = 0.2f)),
+    ) {
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .background(
+                        androidx.compose.ui.graphics.Brush.linearGradient(
+                            colors =
+                                listOf(
+                                    Color(0xFFFE9A00).copy(alpha = 0.1f),
+                                    Color.Transparent,
+                                ),
+                        ),
+                    ),
+        ) {
+            Row(
+                modifier = Modifier.padding(24.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.CheckCircle,
+                    contentDescription = null,
+                    tint = Color(0xFFFFB900),
+                    modifier = Modifier.size(40.dp),
+                )
+                Spacer(modifier = Modifier.width(16.dp))
+                Column {
+                    Text(
+                        text = stringResource(R.string.premium_active_title),
+                        color = Color.White,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = (-0.71).sp,
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = stringResource(R.string.premium_active_desc),
+                        color = Color(0xFFFFB900),
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.12.sp,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun PremiumCard(
+    plans: List<SubscriptionPlan>,
+    onPurchasePlan: (SubscriptionPlan) -> Unit,
+) {
     Box(
         modifier =
             Modifier
@@ -268,24 +399,66 @@ fun PremiumCard(onPurchaseClick: () -> Unit) {
                     )
                     Spacer(modifier = Modifier.height(20.dp))
 
-                    Box(
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .height(60.dp)
-                                .background(Color(0xFFFFB900), RoundedCornerShape(16.dp))
-                                .clickable { onPurchaseClick() },
-                        contentAlignment = Alignment.Center,
-                    ) {
+                    if (plans.isEmpty()) {
+                        // 상품 조회 전/실패 시: 로딩 안내만 노출(결제 버튼 미노출).
                         Text(
-                            text = stringResource(R.string.premium_purchase),
-                            color = Color.Black,
-                            fontWeight = FontWeight.Black,
-                            fontSize = 14.sp,
-                            letterSpacing = 1.25.sp,
+                            text = stringResource(R.string.premium_loading),
+                            color = SlateText,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.fillMaxWidth(),
                         )
+                    } else {
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            plans.forEach { plan ->
+                                SubscriptionPlanButton(
+                                    plan = plan,
+                                    onClick = { onPurchasePlan(plan) },
+                                )
+                            }
+                        }
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SubscriptionPlanButton(
+    plan: SubscriptionPlan,
+    onClick: () -> Unit,
+) {
+    val periodLabel =
+        when (plan.type) {
+            SubscriptionPlan.PlanType.MONTHLY -> stringResource(R.string.premium_plan_monthly)
+            SubscriptionPlan.PlanType.YEARLY -> stringResource(R.string.premium_plan_yearly)
+        }
+    Box(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .height(60.dp)
+                .background(Color(0xFFFFB900), RoundedCornerShape(16.dp))
+                .clickable { onClick() }
+                .padding(horizontal = 20.dp),
+        contentAlignment = Alignment.CenterStart,
+    ) {
+        Column {
+            Text(
+                text = stringResource(R.string.premium_plan_format, periodLabel, plan.formattedPrice),
+                color = Color.Black,
+                fontWeight = FontWeight.Black,
+                fontSize = 14.sp,
+                letterSpacing = 0.5.sp,
+            )
+            if (plan.hasFreeTrial) {
+                Text(
+                    text = stringResource(R.string.premium_free_trial),
+                    color = Color.Black.copy(alpha = 0.7f),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 10.sp,
+                )
             }
         }
     }
@@ -570,6 +743,220 @@ fun AutoStopCard(
     }
 }
 
+/**
+ * 플로팅 오버레이 위젯 설정 카드(F-19a/F-19b).
+ * 사용 토글 + (활성 시) 모드/크기/투명도 조절을 제공한다. 권한 요청은 상위(SettingsScreen)에서 처리.
+ */
+@Composable
+fun OverlayCard(
+    settings: OverlaySettings,
+    onEnabledChange: (Boolean) -> Unit,
+    onModeChange: (OverlayMode) -> Unit,
+    onSizeChange: (OverlaySize) -> Unit,
+    onOpacityChange: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = SlateDark),
+        elevation = CardDefaults.cardElevation(defaultElevation = 10.dp),
+    ) {
+        Column(modifier = Modifier.padding(24.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f).padding(end = 16.dp)) {
+                    Text(
+                        text = stringResource(R.string.overlay_title),
+                        color = Color.White,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = (-0.71).sp,
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = stringResource(R.string.overlay_desc),
+                        color = SlateText,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.12.sp,
+                        lineHeight = 15.sp,
+                    )
+                }
+                Switch(
+                    checked = settings.enabled,
+                    onCheckedChange = onEnabledChange,
+                    colors =
+                        SwitchDefaults.colors(
+                            checkedThumbColor = Color.Black,
+                            checkedTrackColor = NeonGreen,
+                            uncheckedThumbColor = Color.Black,
+                            uncheckedTrackColor = Color(0xFF314158),
+                            uncheckedBorderColor = Color.Transparent,
+                        ),
+                )
+            }
+
+            if (settings.enabled) {
+                Spacer(modifier = Modifier.height(24.dp))
+                HorizontalDivider(color = Color(0xFF314158), thickness = 1.dp)
+                Spacer(modifier = Modifier.height(24.dp))
+
+                OverlayOptionSelector(
+                    label = stringResource(R.string.overlay_mode_label),
+                    options =
+                        listOf(
+                            OverlayMode.SPEEDOMETER to stringResource(R.string.overlay_mode_speed),
+                            OverlayMode.LEAN to stringResource(R.string.overlay_mode_lean),
+                            OverlayMode.COMBINED to stringResource(R.string.overlay_mode_combined),
+                        ),
+                    selected = settings.mode,
+                    onSelect = onModeChange,
+                )
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                OverlayOptionSelector(
+                    label = stringResource(R.string.overlay_size_label),
+                    options =
+                        listOf(
+                            OverlaySize.SMALL to stringResource(R.string.overlay_size_small),
+                            OverlaySize.MEDIUM to stringResource(R.string.overlay_size_medium),
+                            OverlaySize.LARGE to stringResource(R.string.overlay_size_large),
+                        ),
+                    selected = settings.size,
+                    onSelect = onSizeChange,
+                )
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = stringResource(R.string.overlay_opacity_label).uppercase(),
+                        color = Color.White,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = (-0.5).sp,
+                    )
+                    Text(
+                        text = "${settings.opacity}%",
+                        color = NeonGreen,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Black,
+                    )
+                }
+                Slider(
+                    value = settings.opacity.toFloat(),
+                    onValueChange = { onOpacityChange(it.toInt()) },
+                    valueRange = 20f..100f,
+                    colors =
+                        SliderDefaults.colors(
+                            thumbColor = NeonGreen,
+                            activeTrackColor = NeonGreen,
+                            inactiveTrackColor = Color(0xFF314158),
+                        ),
+                )
+            }
+        }
+    }
+}
+
+/** 오버레이 설정용 세그먼트 선택기. [UnitSelector]와 동일한 비주얼을 enum 값 기준으로 제공한다. */
+@Composable
+private fun <T> OverlayOptionSelector(
+    label: String,
+    options: List<Pair<T, String>>,
+    selected: T,
+    onSelect: (T) -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = label.uppercase(),
+            color = Color.White,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Black,
+            letterSpacing = (-0.5).sp,
+        )
+        Row(
+            modifier =
+                Modifier
+                    .background(Color.Black, RoundedCornerShape(16.dp))
+                    .padding(6.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            options.forEach { (value, text) ->
+                val isSelected = value == selected
+                Box(
+                    modifier =
+                        Modifier
+                            .height(40.dp)
+                            .background(
+                                if (isSelected) NeonGreen else Color.Transparent,
+                                RoundedCornerShape(14.dp),
+                            )
+                            .clickable { onSelect(value) }
+                            .padding(horizontal = 12.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = text,
+                        color = if (isSelected) Color.Black else SlateText,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = (-0.15).sp,
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** 오버레이 권한 안내 다이얼로그(§4.4). 확인 시 시스템 오버레이 권한 설정으로 이동한다. */
+@Composable
+private fun OverlayPermissionDialog(
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = SlateDark,
+        title = {
+            Text(
+                text = stringResource(R.string.overlay_permission_title),
+                color = Color.White,
+                fontWeight = FontWeight.Black,
+            )
+        },
+        text = {
+            Text(
+                text = stringResource(R.string.overlay_permission_desc),
+                color = SlateText,
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text(text = stringResource(R.string.overlay_permission_confirm), color = NeonGreen)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(text = stringResource(R.string.overlay_permission_cancel), color = SlateText)
+            }
+        },
+    )
+}
+
 @Composable
 fun SettingsHeader() {
     Column(modifier = Modifier.padding(top = 24.dp, bottom = 32.dp)) {
@@ -690,6 +1077,28 @@ fun SettingsScreenFullPreview() {
         SettingsContent(
             speedUnit = "KM/H",
             onSpeedUnitChange = {},
+        )
+    }
+}
+
+@Preview(showBackground = true, name = "Premium Active")
+@Composable
+private fun PremiumActiveCardPreview() {
+    SpeedoTheme {
+        PremiumActiveCard()
+    }
+}
+
+@Preview(showBackground = true, name = "Overlay Card - Enabled")
+@Composable
+private fun OverlayCardPreview() {
+    SpeedoTheme {
+        OverlayCard(
+            settings = OverlaySettings(enabled = true, opacity = 80),
+            onEnabledChange = {},
+            onModeChange = {},
+            onSizeChange = {},
+            onOpacityChange = {},
         )
     }
 }

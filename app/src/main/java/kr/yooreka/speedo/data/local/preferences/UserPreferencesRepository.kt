@@ -12,6 +12,9 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kr.yooreka.speedo.domain.model.LeanMode
+import kr.yooreka.speedo.domain.model.OverlayMode
+import kr.yooreka.speedo.domain.model.OverlaySettings
+import kr.yooreka.speedo.domain.model.OverlaySize
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -43,6 +46,10 @@ class UserPreferencesRepository
             val LAUNCH_COUNT = intPreferencesKey("launch_count")
             val LEAN_MEASUREMENT_MODE = stringPreferencesKey("lean_measurement_mode")
             val AUTO_STOP_THRESHOLD = intPreferencesKey("auto_stop_threshold")
+            val OVERLAY_ENABLED = booleanPreferencesKey("overlay_enabled")
+            val OVERLAY_MODE = stringPreferencesKey("overlay_mode")
+            val OVERLAY_SIZE = stringPreferencesKey("overlay_size")
+            val OVERLAY_OPACITY = intPreferencesKey("overlay_opacity")
         }
 
         val userPreferencesFlow: Flow<UserPreferences> =
@@ -79,6 +86,18 @@ class UserPreferencesRepository
         val autoStopThresholdFlow: Flow<Int> =
             context.dataStore.data
                 .map { it[PreferencesKeys.AUTO_STOP_THRESHOLD] ?: DEFAULT_AUTO_STOP_MIN }
+
+        /** 플로팅 오버레이 위젯 설정(F-19a/F-19b). */
+        val overlaySettingsFlow: Flow<OverlaySettings> =
+            context.dataStore.data
+                .map { preferences ->
+                    OverlaySettings(
+                        enabled = preferences[PreferencesKeys.OVERLAY_ENABLED] ?: false,
+                        mode = OverlayMode.fromName(preferences[PreferencesKeys.OVERLAY_MODE]),
+                        size = OverlaySize.fromName(preferences[PreferencesKeys.OVERLAY_SIZE]),
+                        opacity = preferences[PreferencesKeys.OVERLAY_OPACITY] ?: DEFAULT_OVERLAY_OPACITY,
+                    )
+                }
 
         suspend fun incrementLaunchCount() {
             context.dataStore.edit { preferences ->
@@ -138,8 +157,39 @@ class UserPreferencesRepository
             }
         }
 
+        /** 오버레이 사용 여부 저장(F-19). */
+        suspend fun updateOverlayEnabled(enabled: Boolean) {
+            context.dataStore.edit { preferences ->
+                preferences[PreferencesKeys.OVERLAY_ENABLED] = enabled
+            }
+        }
+
+        /** 오버레이 표시 모드 저장(F-19a). */
+        suspend fun updateOverlayMode(mode: OverlayMode) {
+            context.dataStore.edit { preferences ->
+                preferences[PreferencesKeys.OVERLAY_MODE] = mode.name
+            }
+        }
+
+        /** 오버레이 크기 저장(F-19b). */
+        suspend fun updateOverlaySize(size: OverlaySize) {
+            context.dataStore.edit { preferences ->
+                preferences[PreferencesKeys.OVERLAY_SIZE] = size.name
+            }
+        }
+
+        /** 오버레이 투명도(0~100) 저장(F-19b). */
+        suspend fun updateOverlayOpacity(opacity: Int) {
+            context.dataStore.edit { preferences ->
+                preferences[PreferencesKeys.OVERLAY_OPACITY] = opacity.coerceIn(0, 100)
+            }
+        }
+
         companion object {
             /** 주행 종료 예상 감지 기본 임계값(분). */
             const val DEFAULT_AUTO_STOP_MIN = 5
+
+            /** 오버레이 기본 투명도(%). */
+            const val DEFAULT_OVERLAY_OPACITY = 100
         }
     }

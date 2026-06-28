@@ -18,3 +18,8 @@ android-development/
 *.skill
 GEMINI.md
 CLAUDE.md
+
+# 서명 키스토어 / 서명 설정 (절대 커밋 금지)
+*.jks
+*.keystore
+keystore.properties

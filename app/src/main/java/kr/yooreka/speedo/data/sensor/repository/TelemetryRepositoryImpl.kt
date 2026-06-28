@@ -25,10 +25,13 @@ import kr.yooreka.speedo.data.local.dao.TelemetryDao
 import kr.yooreka.speedo.data.local.entity.RideEntity
 import kr.yooreka.speedo.data.local.entity.TelemetryEntity
 import kr.yooreka.speedo.data.local.preferences.UserPreferencesRepository
+import kr.yooreka.speedo.data.sensor.datasource.YawRateProvider
 import kr.yooreka.speedo.data.sensor.lean.LeanDiagnosticLogger
 import kr.yooreka.speedo.domain.model.AccelerometerData
 import kr.yooreka.speedo.domain.model.BrakeDetector
 import kr.yooreka.speedo.domain.model.BrakeDetector.BrakeState
+import kr.yooreka.speedo.domain.model.LeanConfidence
+import kr.yooreka.speedo.domain.model.LeanPhysicsGuard
 import kr.yooreka.speedo.domain.model.LocationData
 import kr.yooreka.speedo.domain.repository.LeanCalibrationRepository
 import kr.yooreka.speedo.domain.repository.LeanMeasurement
@@ -56,6 +59,7 @@ class TelemetryRepositoryImpl
         private val calibrationRepository: LeanCalibrationRepository,
         private val leanDiagnosticLogger: LeanDiagnosticLogger,
         private val userPreferencesRepository: UserPreferencesRepository,
+        private val yawRateProvider: YawRateProvider,
     ) : TelemetryRepository {
         private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         private val buffer = mutableListOf<TelemetryEntity>()
@@ -77,9 +81,12 @@ class TelemetryRepositoryImpl
                 results[0]
             }
 
-        // 구간 내 절대값이 가장 큰 기울기(부호 보존). 200ms 타이머가 getAndSet 으로 소비하므로
-        // read-then-reset 레이스를 피하기 위해 AtomicReference 로 둔다.
-        private val maxLeanInInterval = AtomicReference(0f)
+        // 구간 내 절대값이 가장 큰 기울기(부호 보존)와 그 샘플의 신뢰도(F-03b). 200ms 타이머가
+        // getAndSet 으로 소비하므로 read-then-reset 레이스를 피하기 위해 AtomicReference 로 둔다.
+        private val maxLeanInInterval = AtomicReference(LeanSample.EMPTY)
+
+        // 구간 내 가장 강한 제동(F-10). 200ms 틱 사이의 피크 제동이 누락되지 않도록 누적한다.
+        private val maxBrakeInInterval = AtomicReference(BrakeState())
 
         // 새 GPS fix 가 들어온 시점의 좌표를 잠시 보관(dirty-flag). 다음 200ms 틱이 한 번만
         // 소비(getAndSet(null))하여 그 행에만 실좌표를 넣고, 이후 틱은 위치 null 로 기록한다(F-13c 보간 대비).
@@ -131,6 +138,8 @@ class TelemetryRepositoryImpl
             accelRepo.start()
             leanMeasurement.start()
             locationRepo.start()
+            // 뱅킹각 물리 가드(F-03b)용 yaw 요율 산출 시작. accel 가동 후 시작해 위 벡터를 확보한다.
+            yawRateProvider.start()
         }
 
         override fun stopTelemetry() {
@@ -138,6 +147,7 @@ class TelemetryRepositoryImpl
             accelRepo.stop()
             leanMeasurement.stop()
             locationRepo.stop()
+            yawRateProvider.stop()
         }
 
         private var recordingJob: Job? = null
@@ -168,7 +178,8 @@ class TelemetryRepositoryImpl
                 startTimestamp = now
                 maxLeanForSession = 0f
                 maxSpeedForSession = 0f
-                maxLeanInInterval.set(0f)
+                maxLeanInInterval.set(LeanSample.EMPTY)
+                maxBrakeInInterval.set(BrakeState())
                 pendingLocation.set(null)
                 distanceTracker.reset()
                 lowSpeedSinceMs = 0L
@@ -176,19 +187,39 @@ class TelemetryRepositoryImpl
                 _isRecording.value = true
 
                 // 활성 측정 전략(F-03): 구간 내 부호 보존 최대 기울기와 세션 최대 기울기를 누적한다(행 생성과 무관).
+                // 물리적 뱅킹각 가드(F-03b)로 폰 조작 등 과대 노이즈를 보정한 값으로 누적한다.
                 val aggregatorJob =
                     launch {
                         leanMeasurement.leanStream.collect { lean ->
                             if (lean.isNaN()) return@collect
-                            val signedRoll = lean - calibrationRepository.offsetDegrees.value
+                            val rawRoll = lean - calibrationRepository.offsetDegrees.value
+                            val guard =
+                                LeanPhysicsGuard.evaluate(
+                                    rawRollDeg = rawRoll,
+                                    speedKmh = locationRepo.dataStream.value.speed,
+                                    yawRateRadPerSec = yawRateProvider.yawRateStream.value,
+                                )
+                            val signedRoll = guard.roll
                             val magnitude = abs(signedRoll)
                             // 구간 내 절대값이 가장 큰 기울기를 '부호까지' 보존해 저장한다(좌/우 방향 유지).
                             maxLeanInInterval.getAndUpdate { current ->
-                                if (magnitude > abs(current)) signedRoll else current
+                                if (magnitude > abs(current.roll)) LeanSample(signedRoll, guard.confidence) else current
                             }
-                            // 세션 최대 기울기는 요약(RideEntity.maxLean)용이므로 크기(절대값)로 둔다.
-                            if (magnitude > maxLeanForSession) {
+                            // 세션 최대 기울기는 요약(RideEntity.maxLean)용. 집계 대상 샘플만 누적하여
+                            // 극저속 정지 노이즈/이상치(F-03b)가 최대 뱅킹각을 오염시키지 않게 한다.
+                            // (저속이라도 선회 중이면 includeInMax=true 로 실제 기울기를 보존한다.)
+                            if (guard.includeInMax && magnitude > maxLeanForSession) {
                                 maxLeanForSession = magnitude
+                            }
+                        }
+                    }
+
+                // 제동 누적(F-10): 구간 내 가장 강한 제동을 보존해 200ms 틱 사이 피크 누락을 막는다.
+                val brakeAggregatorJob =
+                    launch {
+                        brakeStream.collect { brake ->
+                            maxBrakeInInterval.getAndUpdate { current ->
+                                if (brake.force > current.force) brake else current
                             }
                         }
                     }
@@ -219,9 +250,9 @@ class TelemetryRepositoryImpl
                         while (isActive) {
                             delay(LOG_INTERVAL_MS)
 
-                            // 구간 최대 기울기를 소비(읽고 리셋)한다.
-                            val leanToSave = maxLeanInInterval.getAndSet(0f)
-                            val brake = brakeStream.value
+                            // 구간 최대 기울기/제동을 소비(읽고 리셋)한다(F-03b 신뢰도·F-10 피크 보존).
+                            val leanToSave = maxLeanInInterval.getAndSet(LeanSample.EMPTY)
+                            val brake = maxBrakeInInterval.getAndSet(BrakeState())
                             // 이 틱에 새 GPS fix 좌표가 있으면 한 번만 소비, 없으면 위치 null.
                             val fix = pendingLocation.getAndSet(null)
                             val speedNow = locationRepo.dataStream.value.speed
@@ -234,11 +265,12 @@ class TelemetryRepositoryImpl
                                     rideId = currentRideId,
                                     timestamp = System.currentTimeMillis(),
                                     speed = speedNow,
-                                    roll = leanToSave,
+                                    roll = leanToSave.roll,
                                     brakeEvent = brake.event,
                                     brakeForce = brake.force,
                                     latitude = fix?.first,
                                     longitude = fix?.second,
+                                    leanConfidence = leanToSave.confidence,
                                 ),
                             )
                         }
@@ -247,6 +279,7 @@ class TelemetryRepositoryImpl
                 recordingJob =
                     launch {
                         aggregatorJob.join()
+                        brakeAggregatorJob.join()
                         locationJob.join()
                         periodicJob.join()
                     }
@@ -339,6 +372,16 @@ class TelemetryRepositoryImpl
 
             repositoryScope.launch {
                 telemetryDao.insertAll(snapshot)
+            }
+        }
+
+        /** 구간 최대 기울기 샘플(부호 보존 roll + 신뢰도). 200ms 타이머가 한 번에 소비한다(F-03b). */
+        private data class LeanSample(
+            val roll: Float,
+            val confidence: LeanConfidence,
+        ) {
+            companion object {
+                val EMPTY = LeanSample(0f, LeanConfidence.RELIABLE)
             }
         }
 

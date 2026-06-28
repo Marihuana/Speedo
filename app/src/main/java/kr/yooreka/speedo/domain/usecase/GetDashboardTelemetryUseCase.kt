@@ -2,12 +2,14 @@ package kr.yooreka.speedo.domain.usecase
 
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kr.yooreka.speedo.domain.model.LeanPhysicsGuard
 import kr.yooreka.speedo.domain.model.LocationData
 import kr.yooreka.speedo.domain.model.TelemetryData
 import kr.yooreka.speedo.domain.repository.LeanCalibrationRepository
 import kr.yooreka.speedo.domain.repository.LeanMeasurement
 import kr.yooreka.speedo.domain.repository.SensorRepository
 import kr.yooreka.speedo.domain.repository.TelemetryRepository
+import kr.yooreka.speedo.domain.repository.YawRateMeasurement
 import javax.inject.Inject
 
 class GetDashboardTelemetryUseCase
@@ -17,6 +19,7 @@ class GetDashboardTelemetryUseCase
         private val leanMeasurement: LeanMeasurement,
         private val locationRepo: SensorRepository<LocationData>,
         private val calibrationRepository: LeanCalibrationRepository,
+        private val yawRateMeasurement: YawRateMeasurement,
     ) {
         operator fun invoke(): Flow<TelemetryData> =
             // 제동 판정은 Repository 가 상시 보유하는 단일 소스(brakeStream)를 구독한다.
@@ -27,12 +30,17 @@ class GetDashboardTelemetryUseCase
                 leanMeasurement.leanStream,
                 locationRepo.dataStream,
                 calibrationRepository.offsetDegrees,
-            ) { brake, lean, locationData, offset ->
+                yawRateMeasurement.yawRateStream,
+            ) { brake, lean, locationData, offset, yawRate ->
+                val roll = if (lean.isNaN()) 0f else lean - offset
+                // 표시값은 원시 roll 을 유지(F-03)하되, 물리 가드(F-03b)로 최대 뱅킹각 집계 포함 여부만 판정한다.
+                val countsTowardMax = LeanPhysicsGuard.evaluate(roll, locationData.speed, yawRate).includeInMax
                 TelemetryData(
                     speed = locationData.speed,
-                    roll = if (lean.isNaN()) 0f else lean - offset,
+                    roll = roll,
                     brakeEvent = brake.event,
                     brakeForce = brake.force,
+                    countsTowardMax = countsTowardMax,
                 )
             }
 
