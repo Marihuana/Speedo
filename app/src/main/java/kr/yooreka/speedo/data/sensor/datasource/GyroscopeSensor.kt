@@ -29,15 +29,28 @@ class GyroscopeSensor
         private val _dataFlow = MutableStateFlow(GyroscopeData())
         override val dataFlow: StateFlow<GyroscopeData> = _dataFlow.asStateFlow()
 
+        // 자이로는 상보 필터 lean 전략(F-03)과 yaw 요율 산출(F-03b)이 공유한다.
+        // 다중 소유자가 독립적으로 start/stop 해도 안전하도록 참조 카운트로 등록/해제를 관리한다.
+        private var refCount = 0
+
+        @Synchronized
         override fun start() {
             sensor?.let {
-                sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME)
+                if (refCount == 0) {
+                    sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME)
+                }
+                refCount++
             }
         }
 
+        @Synchronized
         override fun stop() {
-            sensorManager.unregisterListener(this)
-            _dataFlow.value = GyroscopeData()
+            if (refCount == 0) return
+            refCount--
+            if (refCount == 0) {
+                sensorManager.unregisterListener(this)
+                _dataFlow.value = GyroscopeData()
+            }
         }
 
         override fun onSensorChanged(event: SensorEvent) {

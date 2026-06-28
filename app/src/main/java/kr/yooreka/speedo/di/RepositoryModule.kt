@@ -6,6 +6,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import kr.yooreka.speedo.data.billing.BillingRepositoryImpl
 import kr.yooreka.speedo.data.repository.RideRepositoryImpl
+import kr.yooreka.speedo.data.sensor.datasource.YawRateProvider
 import kr.yooreka.speedo.data.sensor.repository.AccelerometerRepositoryImpl
 import kr.yooreka.speedo.data.sensor.repository.GravityRepositoryImpl
 import kr.yooreka.speedo.data.sensor.repository.LeanCalibrationRepositoryImpl
@@ -21,6 +22,7 @@ import kr.yooreka.speedo.domain.repository.LeanCalibrationRepository
 import kr.yooreka.speedo.domain.repository.RideRepository
 import kr.yooreka.speedo.domain.repository.SensorRepository
 import kr.yooreka.speedo.domain.repository.TelemetryRepository
+import kr.yooreka.speedo.domain.repository.YawRateMeasurement
 import kr.yooreka.speedo.domain.usecase.LinearPathInterpolator
 import kr.yooreka.speedo.domain.usecase.PathInterpolator
 import javax.inject.Singleton
@@ -51,6 +53,10 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindLeanCalibrationRepository(impl: LeanCalibrationRepositoryImpl): LeanCalibrationRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindYawRateMeasurement(impl: YawRateProvider): YawRateMeasurement
 
     // 상태가 없는(stateless) 레포지토리는 스코프를 두지 않는다(di_hilt.md).
     @Binds
