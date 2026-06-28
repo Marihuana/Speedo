@@ -30,6 +30,12 @@ interface TelemetryRepository {
 
     fun stopRecording()
 
+    /**
+     * 종료 예상 알림/다이얼로그에서 '종료'를 선택했을 때(F-18). 저속이 시작된 정차 시점 기준으로
+     * 이후 데이터를 잘라내어(Trim, §4.1) 저장한다 — 도보 이동/정차 구간이 주행 시간·경로·통계에 포함되지 않게 한다.
+     */
+    fun confirmAutoStop()
+
     /** 종료 예상 알림/다이얼로그에서 '계속'을 선택했을 때: 감지 타이머를 초기화한다(F-18). */
     fun continueRide()
 

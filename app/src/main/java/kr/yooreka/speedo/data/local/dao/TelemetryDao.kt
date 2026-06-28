@@ -21,6 +21,13 @@ interface TelemetryDao {
     @Query("DELETE FROM telemetry_logs WHERE rideId = :rideId")
     suspend fun deleteByRideId(rideId: Long)
 
+    /** 자동 종료 Trimming(F-18 §4.1): 정차 시점 이후(timestamp 초과) 텔레메트리 행을 삭제한다. */
+    @Query("DELETE FROM telemetry_logs WHERE rideId = :rideId AND timestamp > :timestamp")
+    suspend fun deleteByRideIdAfter(
+        rideId: Long,
+        timestamp: Long,
+    )
+
     @Query("DELETE FROM telemetry_logs")
     suspend fun clearAll()
 }

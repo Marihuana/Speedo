@@ -59,7 +59,7 @@ class RecordingService : Service() {
             // 종료 예상 알림의 액션 버튼(백그라운드 대응, F-18).
             ACTION_STOP_RIDE -> {
                 cancelAutoStopNotification()
-                telemetryRepository.stopRecording()
+                telemetryRepository.confirmAutoStop()
             }
             ACTION_CONTINUE_RIDE -> {
                 cancelAutoStopNotification()

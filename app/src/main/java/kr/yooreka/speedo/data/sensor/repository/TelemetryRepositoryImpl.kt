@@ -285,7 +285,15 @@ class TelemetryRepositoryImpl
             }
         }
 
-        override fun stopRecording() {
+        override fun stopRecording() = finishRecording(trim = false)
+
+        /**
+         * 주행 종료 예상(F-18) '종료' 확정: 저속이 시작된 정차 시점(§4.1) 기준으로 이후 데이터를
+         * 잘라내고(Trim) 저장한다. 도보 이동/정차 구간이 주행 시간·경로·통계에 포함되지 않게 한다.
+         */
+        override fun confirmAutoStop() = finishRecording(trim = true)
+
+        private fun finishRecording(trim: Boolean) {
             if (!_isRecording.value) return
 
             // Stop Foreground Service
@@ -296,11 +304,13 @@ class TelemetryRepositoryImpl
             ContextCompat.startForegroundService(context, serviceIntent)
 
             val rideId = currentRideId
-            val endTime = System.currentTimeMillis()
-            val maxLean = maxLeanForSession
-            val maxSpeed = maxSpeedForSession
-            val distanceKm = distanceTracker.totalKm
-            val duration = endTime - startTimestamp
+            val startTs = startTimestamp
+            // 트림 기준 = 저속이 시작된 정차 시점. 0이거나 시작 이전이면 트림하지 않는다.
+            val trimFromMs = if (trim) lowSpeedSinceMs else 0L
+            val fullEndTime = System.currentTimeMillis()
+            val fullMaxLean = maxLeanForSession
+            val fullMaxSpeed = maxSpeedForSession
+            val fullDistanceKm = distanceTracker.totalKm
 
             _isRecording.value = false
             recordingJob?.cancel()
@@ -314,19 +324,69 @@ class TelemetryRepositoryImpl
 
             repositoryScope.launch {
                 flushBuffer()
-                val ride = rideDao.getRideById(rideId)
-                ride?.let {
-                    rideDao.updateRide(
-                        it.copy(
-                            endTime = endTime,
-                            maxLean = maxLean,
-                            maxSpeed = maxSpeed,
-                            totalDistance = distanceKm,
-                            duration = duration,
-                        ),
+                if (trimFromMs > startTs) {
+                    // §4.1 Trimming: 정차 시점 이후 텔레메트리를 삭제하고 남은 데이터로 요약을 재계산한다.
+                    telemetryDao.deleteByRideIdAfter(rideId, trimFromMs)
+                    val remaining = telemetryDao.getTelemetryByRideId(rideId)
+                    val endTime = remaining.lastOrNull()?.timestamp ?: trimFromMs
+                    saveRideSummary(
+                        rideId = rideId,
+                        endTime = endTime,
+                        // 최대 뱅킹각은 VALID 데이터만(F-03b).
+                        maxLean =
+                            remaining.filter { it.leanConfidence == LeanConfidence.VALID }
+                                .maxOfOrNull { abs(it.roll) } ?: 0f,
+                        maxSpeed = remaining.maxOfOrNull { it.speed } ?: 0f,
+                        distanceKm = recomputeDistanceKm(remaining),
+                        duration = endTime - startTs,
+                    )
+                } else {
+                    saveRideSummary(
+                        rideId = rideId,
+                        endTime = fullEndTime,
+                        maxLean = fullMaxLean,
+                        maxSpeed = fullMaxSpeed,
+                        distanceKm = fullDistanceKm,
+                        duration = fullEndTime - startTs,
                     )
                 }
             }
+        }
+
+        private suspend fun saveRideSummary(
+            rideId: Long,
+            endTime: Long,
+            maxLean: Float,
+            maxSpeed: Float,
+            distanceKm: Float,
+            duration: Long,
+        ) {
+            val ride = rideDao.getRideById(rideId) ?: return
+            rideDao.updateRide(
+                ride.copy(
+                    endTime = endTime,
+                    maxLean = maxLean,
+                    maxSpeed = maxSpeed,
+                    totalDistance = distanceKm,
+                    duration = duration,
+                ),
+            )
+        }
+
+        /** 트림 후 남은 좌표로 누적 거리를 재계산한다(저장 행엔 정확도가 없어 정확도 게이트는 미적용). */
+        private fun recomputeDistanceKm(rows: List<TelemetryEntity>): Float {
+            val tracker =
+                RideDistanceTracker(minDistanceMeters = MIN_SEGMENT_METERS) { lat1, lng1, lat2, lng2 ->
+                    val results = FloatArray(1)
+                    Location.distanceBetween(lat1, lng1, lat2, lng2, results)
+                    results[0]
+                }
+            rows.forEach { row ->
+                val lat = row.latitude
+                val lng = row.longitude
+                if (lat != null && lng != null) tracker.add(lat, lng)
+            }
+            return tracker.totalKm
         }
 
         override fun continueRide() {

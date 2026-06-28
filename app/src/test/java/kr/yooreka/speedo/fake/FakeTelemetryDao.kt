@@ -43,6 +43,15 @@ class FakeTelemetryDao(
         logs.value = logs.value.filterNot { it.rideId == rideId }
     }
 
+    override suspend fun deleteByRideIdAfter(
+        rideId: Long,
+        timestamp: Long,
+    ) {
+        throwOnWrite?.let { throw it }
+        ops += "telemetry.deleteByRideIdAfter"
+        logs.value = logs.value.filterNot { it.rideId == rideId && it.timestamp > timestamp }
+    }
+
     override suspend fun clearAll() {
         throwOnWrite?.let { throw it }
         logs.value = emptyList()
