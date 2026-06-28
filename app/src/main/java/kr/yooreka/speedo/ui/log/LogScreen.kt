@@ -69,6 +69,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kr.yooreka.speedo.R
+import kr.yooreka.speedo.domain.model.LeanConfidence
+import kr.yooreka.speedo.domain.model.RideTelemetry
 import kotlin.math.abs
 
 // ── 색상 팔레트 ────────────────────────────────────────────────────────────────
@@ -92,6 +94,13 @@ private val LeanLight15 = Color(0xFF065F46) // Lean < 15°
 private val LeanLight30 = Color(0xFF1E40AF) // 15° ≤ Lean < 30°
 private val LeanLight45 = Color(0xFF991B1B) // 30° ≤ Lean < 45°
 private val LeanLight45Plus = Color(0xFF4C1D95) // Lean ≥ 45°
+
+/**
+ * 지도/상세 렌더용 보정 뱅킹각(F-03b, PRD §4.1).
+ * - `OUTLIER_NOISE`: 0°로 평탄화(경로 오염 방지, 초록/수평).
+ * - 그 외(VALID/LOW_SPEED_UNRELIABLE): 저장된 보정값 그대로(LOW_SPEED 는 이미 ±15° 클램프되어 저장됨).
+ */
+private fun renderRoll(point: RideTelemetry): Float = if (point.leanConfidence == LeanConfidence.OUTLIER_NOISE) 0f else point.roll
 
 /** F-13a: 뱅킹각(절대값)만으로 경로 색상을 결정한다. 모드(Light/Dark)별 팔레트를 사용한다. */
 private fun routeColor(
@@ -182,7 +191,7 @@ fun LogScreen(
                 if (it.latitude != null && it.longitude != null) {
                     RoutePoint(
                         position = LatLng(it.latitude!!, it.longitude!!),
-                        color = routeColor(it.roll, isDarkTheme),
+                        color = routeColor(renderRoll(it), isDarkTheme),
                         speedStyle = speedStyle(it.speed),
                     )
                 } else {
@@ -207,15 +216,16 @@ fun LogScreen(
 
     val segmentSummary =
         state.selectedPoint?.let {
+            val r = renderRoll(it)
             RideSummary(
                 time = "",
                 distanceKm = "",
                 topSpeedKmh = it.speed.toInt().toString(),
-                maxLeanDeg = abs(it.roll).toInt().toString(),
+                maxLeanDeg = abs(r).toInt().toString(),
                 leanDirection =
-                    if (it.roll < 0f) {
+                    if (r < 0f) {
                         "R"
-                    } else if (it.roll > 0f) {
+                    } else if (r > 0f) {
                         "L"
                     } else {
                         ""

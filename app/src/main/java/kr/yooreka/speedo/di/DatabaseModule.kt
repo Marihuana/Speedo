@@ -30,6 +30,19 @@ object DatabaseModule {
             }
         }
 
+    /**
+     * v4 → v5: 뱅킹각 신뢰도 enum 명칭 변경(RELIABLE → VALID, PRD §4.1 용어 정렬).
+     * Room 은 enum 을 이름(TEXT)으로 저장하므로 기존 행의 'RELIABLE' 값을 'VALID' 로 갱신한다.
+     */
+    private val migration4To5 =
+        object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "UPDATE telemetry_logs SET leanConfidence = 'VALID' WHERE leanConfidence = 'RELIABLE'",
+                )
+            }
+        }
+
     @Provides
     @Singleton
     fun provideDatabase(
@@ -40,7 +53,7 @@ object DatabaseModule {
             SpeedoDatabase::class.java,
             "speedo_database",
         )
-            .addMigrations(migration3To4)
+            .addMigrations(migration3To4, migration4To5)
             .fallbackToDestructiveMigration()
             .build()
     }

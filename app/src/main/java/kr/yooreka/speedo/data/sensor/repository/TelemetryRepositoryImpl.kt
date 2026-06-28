@@ -205,10 +205,9 @@ class TelemetryRepositoryImpl
                             maxLeanInInterval.getAndUpdate { current ->
                                 if (magnitude > abs(current.roll)) LeanSample(signedRoll, guard.confidence) else current
                             }
-                            // 세션 최대 기울기는 요약(RideEntity.maxLean)용. 집계 대상 샘플만 누적하여
-                            // 극저속 정지 노이즈/이상치(F-03b)가 최대 뱅킹각을 오염시키지 않게 한다.
-                            // (저속이라도 선회 중이면 includeInMax=true 로 실제 기울기를 보존한다.)
-                            if (guard.includeInMax && magnitude > maxLeanForSession) {
+                            // 세션 최대 기울기는 요약(RideEntity.maxLean)용. PRD §4.1: VALID 데이터만 집계하여
+                            // 극저속(LOW_SPEED_UNRELIABLE)·이상치(OUTLIER_NOISE)가 최대 뱅킹각을 오염시키지 않게 한다.
+                            if (guard.confidence == LeanConfidence.VALID && magnitude > maxLeanForSession) {
                                 maxLeanForSession = magnitude
                             }
                         }
@@ -381,7 +380,7 @@ class TelemetryRepositoryImpl
             val confidence: LeanConfidence,
         ) {
             companion object {
-                val EMPTY = LeanSample(0f, LeanConfidence.RELIABLE)
+                val EMPTY = LeanSample(0f, LeanConfidence.VALID)
             }
         }
 
