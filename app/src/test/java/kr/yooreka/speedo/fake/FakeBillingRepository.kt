@@ -3,6 +3,7 @@ package kr.yooreka.speedo.fake
 import android.app.Activity
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kr.yooreka.speedo.domain.model.SubscriptionPlan
 import kr.yooreka.speedo.domain.repository.BillingRepository
 
 /**
@@ -14,6 +15,9 @@ class FakeBillingRepository(
     private val _isAdRemoved = MutableStateFlow(initialAdRemoved)
     override val isAdRemoved: StateFlow<Boolean> = _isAdRemoved
 
+    private val _subscriptionPlans = MutableStateFlow<List<SubscriptionPlan>>(emptyList())
+    override val subscriptionPlans: StateFlow<List<SubscriptionPlan>> = _subscriptionPlans
+
     var launchCount = 0
         private set
 
@@ -21,7 +25,14 @@ class FakeBillingRepository(
         _isAdRemoved.value = value
     }
 
-    override fun launchBillingFlow(activity: Activity) {
+    fun setSubscriptionPlans(plans: List<SubscriptionPlan>) {
+        _subscriptionPlans.value = plans
+    }
+
+    override fun launchBillingFlow(
+        activity: Activity,
+        plan: SubscriptionPlan,
+    ) {
         launchCount++
     }
 }
