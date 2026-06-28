@@ -60,4 +60,9 @@ class GetDashboardTelemetryUseCase
         fun stopRecording() {
             telemetryRepository.stopRecording()
         }
+
+        /** 자동 종료 제안에서 '종료' 확정(F-18): 정차 시점 기준 Trim 저장. */
+        fun confirmAutoStop() {
+            telemetryRepository.confirmAutoStop()
+        }
     }
