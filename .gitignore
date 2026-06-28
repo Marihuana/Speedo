@@ -23,3 +23,7 @@ CLAUDE.md
 *.jks
 *.keystore
 keystore.properties
+
+# AI 에이전트 설정 / 임시 문서 (로컬 전용)
+.agents/
+docs/temp/
