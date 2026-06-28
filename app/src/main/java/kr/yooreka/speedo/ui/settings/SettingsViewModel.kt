@@ -13,6 +13,10 @@ import kotlinx.coroutines.launch
 import kr.yooreka.speedo.data.local.preferences.UserPreferencesRepository
 import kr.yooreka.speedo.data.sensor.lean.LeanDiagnosticLogger
 import kr.yooreka.speedo.domain.model.LeanMode
+import kr.yooreka.speedo.domain.model.OverlayMode
+import kr.yooreka.speedo.domain.model.OverlaySettings
+import kr.yooreka.speedo.domain.model.OverlaySize
+import kr.yooreka.speedo.domain.model.SubscriptionPlan
 import kr.yooreka.speedo.domain.repository.BillingRepository
 import kr.yooreka.speedo.domain.repository.LeanCalibrationRepository
 import java.io.File
@@ -25,6 +29,10 @@ data class SettingsState(
     val leanMeasurementMode: LeanMode = LeanMode.DEFAULT,
     // 주행 종료 예상 감지 임계값(분, 0=OFF, F-18a).
     val autoStopThresholdMin: Int = 5,
+    // 광고 제거 구독 플랜(월간/연간, 무료체험 포함).
+    val subscriptionPlans: List<SubscriptionPlan> = emptyList(),
+    // 플로팅 오버레이 위젯 설정(F-19a/b).
+    val overlaySettings: OverlaySettings = OverlaySettings(),
 )
 
 @HiltViewModel
@@ -43,13 +51,17 @@ class SettingsViewModel
                 userPreferencesRepository.userPreferencesFlow,
                 isCalibratingFlow,
                 billingRepository.isAdRemoved,
-            ) { prefs, calibrating, isAdRemoved ->
+                billingRepository.subscriptionPlans,
+                userPreferencesRepository.overlaySettingsFlow,
+            ) { prefs, calibrating, isAdRemoved, plans, overlay ->
                 SettingsState(
                     speedUnit = prefs.speedUnit,
                     isCalibrating = calibrating,
                     isAdRemoved = isAdRemoved,
                     leanMeasurementMode = LeanMode.fromName(prefs.leanMeasurementMode),
                     autoStopThresholdMin = prefs.autoStopThresholdMin,
+                    subscriptionPlans = plans,
+                    overlaySettings = overlay,
                 )
             }.stateIn(
                 scope = viewModelScope,
@@ -57,8 +69,12 @@ class SettingsViewModel
                 initialValue = SettingsState(),
             )
 
-        fun purchaseRemoveAds(activity: Activity) {
-            billingRepository.launchBillingFlow(activity)
+        /** 선택한 구독 플랜(월간/연간)의 결제 플로우를 시작한다. */
+        fun purchasePlan(
+            activity: Activity,
+            plan: SubscriptionPlan,
+        ) {
+            billingRepository.launchBillingFlow(activity, plan)
         }
 
         fun updateSpeedUnit(unit: String) {
@@ -81,6 +97,34 @@ class SettingsViewModel
         fun updateAutoStopThreshold(minutes: Int) {
             viewModelScope.launch {
                 userPreferencesRepository.updateAutoStopThreshold(minutes)
+            }
+        }
+
+        /** 오버레이 사용 여부 변경(F-19). 권한 확인은 UI 레이어 책임. */
+        fun updateOverlayEnabled(enabled: Boolean) {
+            viewModelScope.launch {
+                userPreferencesRepository.updateOverlayEnabled(enabled)
+            }
+        }
+
+        /** 오버레이 표시 모드 변경(F-19a). */
+        fun updateOverlayMode(mode: OverlayMode) {
+            viewModelScope.launch {
+                userPreferencesRepository.updateOverlayMode(mode)
+            }
+        }
+
+        /** 오버레이 크기 변경(F-19b). */
+        fun updateOverlaySize(size: OverlaySize) {
+            viewModelScope.launch {
+                userPreferencesRepository.updateOverlaySize(size)
+            }
+        }
+
+        /** 오버레이 투명도(0~100) 변경(F-19b). */
+        fun updateOverlayOpacity(opacity: Int) {
+            viewModelScope.launch {
+                userPreferencesRepository.updateOverlayOpacity(opacity)
             }
         }
 

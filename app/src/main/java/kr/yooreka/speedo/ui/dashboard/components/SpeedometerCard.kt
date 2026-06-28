@@ -3,10 +3,9 @@ package kr.yooreka.speedo.ui.dashboard.components
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -15,43 +14,40 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kr.yooreka.speedo.R
+import kr.yooreka.speedo.ui.components.GaugeSide
+import kr.yooreka.speedo.ui.components.LeanGauge
 import kr.yooreka.speedo.ui.theme.NeonGreen
-import kr.yooreka.speedo.ui.theme.SlateDark
 import kr.yooreka.speedo.ui.theme.SlateSubText
-import kr.yooreka.speedo.ui.theme.SlateText
+import kr.yooreka.speedo.utils.parseLeanAngle
 import kotlin.math.abs
 
 // ── 색상 ──────────────────────────────────────────────────────────────────────
-private val GaugeTrackColor = Color(0xFF525468)
-private val GaugeActiveColor = NeonGreen
 private val SpeedTextColor = NeonGreen
 
 // ── 상수 ──────────────────────────────────────────────────────────────────────
 private const val MIN_LEAN_ANGLE = -65f
 private const val MAX_LEAN_ANGLE = 65f
-private const val ARC_SWEEP_TOTAL = 120f
-
-enum class GaugeSide { LEFT, RIGHT }
 
 /**
  * SpeedometerCard
@@ -60,11 +56,14 @@ enum class GaugeSide { LEFT, RIGHT }
 fun SpeedometerCard(
     speedKmh: String,
     leanAngle: String,
-    speedUnit: String = "KM/H",
     modifier: Modifier = Modifier,
+    speedUnit: String = "KM/H",
+    isRecording: Boolean = false,
+    maxLeftRoll: String = "0°",
+    maxRightRoll: String = "0°",
 ) {
     val speedInt = speedKmh.toIntOrNull() ?: 0
-    val leanFloat = leanAngle.removeSuffix("°").toFloatOrNull() ?: 0f
+    val leanFloat = parseLeanAngle(leanAngle)
 
     val clampedLean = leanFloat.coerceIn(-MAX_LEAN_ANGLE, MAX_LEAN_ANGLE)
 
@@ -79,15 +78,51 @@ fun SpeedometerCard(
             ),
         label = "leanAngle",
     )
-    Box(
+    BoxWithConstraints(
         modifier =
             modifier
                 .fillMaxWidth()
                 .height(359.dp)
+                .shadow(
+                    elevation = 20.dp,
+                    shape = RoundedCornerShape(24.dp),
+                    ambientColor = Color(0x1A000000),
+                    spotColor = Color(0x1A000000),
+                )
                 .clip(RoundedCornerShape(24.dp))
-                .background(SlateDark, RoundedCornerShape(24.dp)),
+                .background(Color(0xFF1E293B)),
         contentAlignment = Alignment.Center,
     ) {
+        val isCompact = maxHeight < 280.dp
+
+        // Figma Font Specs
+        val speedFontSize = if (isCompact) 72.sp else 96.sp
+        val speedLetterSpacing = if (isCompact) (-3).sp else (-4.8).sp
+
+        val unitFontSize = if (isCompact) 14.sp else 18.sp
+
+        val leanLabelFontSize = if (isCompact) 11.sp else 14.sp
+        val leanLabelLetterSpacing = if (isCompact) 1.0.sp else 1.25.sp
+
+        val directionFontSize = if (isCompact) 24.sp else 36.sp
+        val directionLetterSpacing = if (isCompact) (-1.7).sp else (-2.6).sp
+
+        val angleValueFontSize = if (isCompact) 40.sp else 60.sp
+        val angleValueLetterSpacing = if (isCompact) (-1.8).sp else (-2.7).sp
+
+        val maxLabelFontSize = if (isCompact) 8.sp else 10.sp
+        val maxLabelLetterSpacing = if (isCompact) 0.9.sp else 1.1.sp
+
+        val maxValueFontSize = if (isCompact) 20.sp else 30.sp
+        val maxValueLetterSpacing = if (isCompact) 0.27.sp else 0.4.sp
+
+        val bottomPadding = if (isCompact) 16.dp else 32.dp
+        val edgePadding = if (isCompact) 16.dp else 24.dp
+        val contentBottomPadding = if (isCompact) 16.dp else 24.dp
+
+        val gaugeStrokeWidth = if (isCompact) 12.dp else 16.dp
+        val gaugeEdgeInset = if (isCompact) 12.dp else 16.dp
+
         Spacer(Modifier.size(24.dp))
         Row(
             modifier =
@@ -98,147 +133,179 @@ fun SpeedometerCard(
             LeanGauge(
                 minValue = MIN_LEAN_ANGLE,
                 maxValue = MAX_LEAN_ANGLE,
-                value = animatedLean,
+                valueProvider = { animatedLean },
                 side = GaugeSide.LEFT,
                 modifier =
                     Modifier
                         .fillMaxSize()
                         .weight(1f),
+                strokeWidth = gaugeStrokeWidth,
+                edgeInset = gaugeEdgeInset,
             )
             LeanGauge(
                 minValue = MIN_LEAN_ANGLE,
                 maxValue = MAX_LEAN_ANGLE,
-                value = -animatedLean,
+                valueProvider = { -animatedLean },
                 side = GaugeSide.RIGHT,
                 modifier =
                     Modifier
                         .fillMaxSize()
                         .weight(1f),
+                strokeWidth = gaugeStrokeWidth,
+                edgeInset = gaugeEdgeInset,
             )
         }
+
+        val density = LocalDensity.current
+        val speedShadow =
+            remember(density) {
+                Shadow(
+                    color = Color(0x26000000),
+                    offset = Offset(0f, with(density) { 4.dp.toPx() }),
+                    blurRadius = with(density) { 8.dp.toPx() },
+                )
+            }
 
         // 속도 + UNIT
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
-            modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
+            modifier = Modifier.fillMaxWidth().padding(bottom = contentBottomPadding),
         ) {
             Text(
                 text = speedInt.toString(),
                 color = SpeedTextColor,
-                fontSize = 96.sp,
+                fontSize = speedFontSize,
                 fontWeight = FontWeight.Black,
-                letterSpacing = (-4.8).sp,
+                letterSpacing = speedLetterSpacing,
                 textAlign = TextAlign.Center,
+                style = androidx.compose.ui.text.TextStyle(shadow = speedShadow),
             )
             Text(
                 text = speedUnit,
-                color = SlateText,
-                fontSize = 18.sp,
+                color = Color(0xFF90A1B9),
+                fontSize = unitFontSize,
                 fontWeight = FontWeight.Bold,
-                letterSpacing = 1.36.sp,
+                letterSpacing = if (isCompact) 1.05.sp else 1.36.sp,
                 textAlign = TextAlign.Center,
             )
         }
 
-        // 린앵글 (하단)
+        // 린앵글 (하단 중앙)
+        val direction =
+            when {
+                animatedLean < 0f -> "R"
+                animatedLean > 0f -> "L"
+                else -> ""
+            }
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier =
                 Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(bottom = 32.dp),
+                    .padding(bottom = bottomPadding),
         ) {
             Text(
                 text = stringResource(R.string.lean_angle),
                 color = SlateSubText,
-                fontSize = 12.sp,
+                fontSize = leanLabelFontSize,
                 fontWeight = FontWeight.Bold,
-                letterSpacing = 1.2.sp,
+                letterSpacing = leanLabelLetterSpacing,
             )
-            Spacer(modifier = Modifier.height(2.dp))
-            val direction =
-                when {
-                    animatedLean < 0f -> "R"
-                    animatedLean > 0f -> "L"
-                    else -> ""
+            Spacer(modifier = Modifier.height(if (isCompact) 0.dp else 2.dp))
+            Row(
+                verticalAlignment = Alignment.Bottom,
+                horizontalArrangement = Arrangement.Center,
+            ) {
+                if (direction.isNotEmpty()) {
+                    Text(
+                        text = direction,
+                        color = Color.White,
+                        fontSize = directionFontSize,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = directionLetterSpacing,
+                        modifier = Modifier.alignByBaseline(),
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
                 }
-            Text(
-                text = if (direction.isEmpty()) "0°" else "$direction ${abs(animatedLean).toInt()}°",
-                color = Color.White,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Black,
-                letterSpacing = (-0.45).sp,
-            )
+                Text(
+                    text = "${abs(animatedLean).toInt()}°",
+                    color = Color.White,
+                    fontSize = angleValueFontSize,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = angleValueLetterSpacing,
+                    modifier = Modifier.alignByBaseline(),
+                )
+            }
         }
-    }
-}
 
-@Composable
-fun LeanGauge(
-    minValue: Float,
-    maxValue: Float,
-    value: Float,
-    side: GaugeSide,
-    modifier: Modifier = Modifier,
-    strokeWidth: Dp = 16.dp,
-) {
-    val range = (maxValue - minValue).takeIf { it > 0f } ?: 1f
-    val fill = ((value - minValue) / range).coerceIn(0f, 1f)
-
-    Canvas(modifier = modifier) {
-        val sw = strokeWidth.toPx()
-        val edgeInset = 16.dp.toPx()
-
-        val maxRadiusByHeight = (size.height * 0.82f) / 2f
-        val maxRadiusByWidth = size.width - edgeInset - (sw / 2f)
-        val radius = minOf(maxRadiusByHeight, maxRadiusByWidth)
-        val arcSize = radius * 2f
-
-        val centerY = size.height * 0.44f
-        val topLeftY = centerY - radius
-
-        val (trackStart, centerX) =
-            when (side) {
-                GaugeSide.LEFT -> 120f to (size.width - edgeInset)
-                GaugeSide.RIGHT -> 300f to edgeInset
+        // 최대 린앵글 (양쪽 하단 코너)
+        if (isRecording) {
+            // 좌측 하단: MAX L
+            Column(
+                modifier =
+                    Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(start = edgePadding, bottom = bottomPadding),
+                horizontalAlignment = Alignment.Start,
+            ) {
+                Text(
+                    text = "MAX L",
+                    color = SlateSubText,
+                    fontSize = maxLabelFontSize,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = maxLabelLetterSpacing,
+                )
+                Text(
+                    text = maxLeftRoll,
+                    color = Color.White,
+                    fontSize = maxValueFontSize,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = maxValueLetterSpacing,
+                )
             }
 
-        val topLeft = Offset(centerX - radius, topLeftY)
-        val rect = Size(arcSize, arcSize)
-
-        drawArc(
-            color = GaugeTrackColor,
-            startAngle = trackStart,
-            sweepAngle = ARC_SWEEP_TOTAL,
-            useCenter = false,
-            topLeft = topLeft,
-            size = rect,
-            style = Stroke(width = sw, cap = StrokeCap.Round),
-        )
-
-        if (fill > 0f) {
-            val activeSweep = ARC_SWEEP_TOTAL * fill
-            val activeStart =
-                when (side) {
-                    GaugeSide.LEFT -> trackStart
-                    GaugeSide.RIGHT -> trackStart + ARC_SWEEP_TOTAL - activeSweep
-                }
-            drawArc(
-                color = GaugeActiveColor,
-                startAngle = activeStart,
-                sweepAngle = activeSweep,
-                useCenter = false,
-                topLeft = topLeft,
-                size = rect,
-                style = Stroke(width = sw, cap = StrokeCap.Round),
-            )
+            // 우측 하단: MAX R
+            Column(
+                modifier =
+                    Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(end = edgePadding, bottom = bottomPadding),
+                horizontalAlignment = Alignment.End,
+            ) {
+                Text(
+                    text = "MAX R",
+                    color = SlateSubText,
+                    fontSize = maxLabelFontSize,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = maxLabelLetterSpacing,
+                )
+                Text(
+                    text = maxRightRoll,
+                    color = Color.White,
+                    fontSize = maxValueFontSize,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = maxValueLetterSpacing,
+                )
+            }
         }
     }
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFF000000)
+@Preview(showBackground = true, backgroundColor = 0xFF000000, name = "Speedometer - Neutral")
 @Composable
 private fun PreviewNeutral() {
     SpeedometerCard(speedKmh = "0", leanAngle = "0°")
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFF000000, name = "Speedometer - Recording")
+@Composable
+private fun PreviewRecording() {
+    SpeedometerCard(
+        speedKmh = "80",
+        leanAngle = "15°",
+        isRecording = true,
+        maxLeftRoll = "24°",
+        maxRightRoll = "28°",
+    )
 }

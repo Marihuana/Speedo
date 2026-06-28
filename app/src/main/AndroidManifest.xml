@@ -10,6 +10,8 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="com.android.vending.BILLING" />
+    <!-- 플로팅 오버레이 위젯(F-19): 다른 앱 위에 표시 -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     
     <!-- Bluetooth / BLE Permissions -->
     <uses-permission android:name="android.permission.BLUETOOTH" />
@@ -38,6 +40,12 @@
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="location" />
+
+        <!-- 플로팅 오버레이 위젯 렌더링 서비스(F-19). 주행 중 RecordingService 포그라운드와 함께 동작. -->
+        <service
+            android:name=".service.OverlayService"
+            android:enabled="true"
+            android:exported="false" />
 
         <!-- 진단 CSV(F-03) 메일 첨부 공유용 FileProvider -->
         <provider
