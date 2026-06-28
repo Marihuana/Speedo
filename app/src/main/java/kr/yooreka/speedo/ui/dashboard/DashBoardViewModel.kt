@@ -125,10 +125,10 @@ class DashBoardViewModel
             telemetryRepository.continueRide()
         }
 
-        /** 주행 종료 예상 다이얼로그 '예'(종료): 기록을 종료한다(+광고 노출). */
+        /** 주행 종료 예상 다이얼로그 '예'(종료): 정차 시점 기준 Trim 저장 후 종료한다(+광고 노출). */
         fun onAutoStopConfirm() {
             viewModelScope.launch {
-                getDashboardTelemetryUseCase.stopRecording()
+                getDashboardTelemetryUseCase.confirmAutoStop()
                 if (!billingRepository.isAdRemoved.value) {
                     _uiEvent.emit(DashBoardUiEvent.ShowInterstitialAd)
                 }
