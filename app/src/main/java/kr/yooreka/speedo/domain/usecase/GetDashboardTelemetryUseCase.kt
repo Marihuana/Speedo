@@ -33,14 +33,15 @@ class GetDashboardTelemetryUseCase
                 yawRateMeasurement.yawRateStream,
             ) { brake, lean, locationData, offset, yawRate ->
                 val roll = if (lean.isNaN()) 0f else lean - offset
-                // 표시값은 원시 roll 을 유지(F-03)하되, 물리 가드(F-03b)로 최대 뱅킹각 집계 포함 여부만 판정한다.
-                val countsTowardMax = LeanPhysicsGuard.evaluate(roll, locationData.speed, yawRate).includeInMax
+                // 표시값(현재 뱅킹각)은 원시 roll 을 그대로 유지하고(PRD §4.1), 물리 가드(F-03b)로는
+                // 신뢰도만 판정해 L/R 최대각 갱신 여부에만 사용한다.
+                val confidence = LeanPhysicsGuard.evaluate(roll, locationData.speed, yawRate).confidence
                 TelemetryData(
                     speed = locationData.speed,
                     roll = roll,
                     brakeEvent = brake.event,
                     brakeForce = brake.force,
-                    countsTowardMax = countsTowardMax,
+                    leanConfidence = confidence,
                 )
             }
 

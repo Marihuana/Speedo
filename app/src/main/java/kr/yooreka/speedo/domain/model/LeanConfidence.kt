@@ -7,8 +7,8 @@ package kr.yooreka.speedo.domain.model
  * Room 에는 enum 이름(TEXT)으로 저장된다.
  */
 enum class LeanConfidence {
-    /** 예측 뱅킹각과의 오차가 허용치 이내 — 신뢰할 수 있는 측정값. */
-    RELIABLE,
+    /** 예측 뱅킹각과의 오차가 허용치 이내 — 신뢰할 수 있는 측정값(최대 뱅킹각 통계 대상). */
+    VALID,
 
     /** 예측 대비 물리적으로 설명 불가한 과대 뱅킹(폰 조작 등) — 예측치로 클리핑 보정됨. */
     OUTLIER_NOISE,

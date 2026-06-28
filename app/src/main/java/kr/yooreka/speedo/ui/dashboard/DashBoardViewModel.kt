@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kr.yooreka.speedo.data.local.preferences.UserPreferencesRepository
+import kr.yooreka.speedo.domain.model.LeanConfidence
 import kr.yooreka.speedo.domain.repository.BillingRepository
 import kr.yooreka.speedo.domain.repository.TelemetryRepository
 import kr.yooreka.speedo.domain.usecase.GetDashboardTelemetryUseCase
@@ -57,9 +58,9 @@ class DashBoardViewModel
                     maxLeftRoll.value = 0f
                     maxRightRoll.value = 0f
                     getDashboardTelemetryUseCase().collect { data ->
-                        // 물리 가드(F-03b) 판정: 극저속 정지 노이즈/이상치는 최대 뱅킹각 누적에서 제외하고,
-                        // 저속이라도 선회 중이면 포함한다.
-                        if (!data.countsTowardMax) return@collect
+                        // 물리 가드(F-03b): L/R 최대각은 VALID 데이터만 갱신한다. 극저속/이상치(정차 폰 조작 등)는
+                        // 현재 뱅킹각엔 즉각 반영되지만 최대치 카드는 갱신하지 않는다.
+                        if (data.leanConfidence != LeanConfidence.VALID) return@collect
                         val roll = data.roll
                         when {
                             roll > 0f -> if (roll > maxLeftRoll.value) maxLeftRoll.value = roll

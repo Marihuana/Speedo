@@ -16,6 +16,6 @@ data class TelemetryEntity(
     val brakeForce: Float,
     val latitude: Double?,
     val longitude: Double?,
-    /** 뱅킹각 데이터 신뢰도(F-03b). 기본값은 호환을 위해 RELIABLE. */
-    val leanConfidence: LeanConfidence = LeanConfidence.RELIABLE,
+    /** 뱅킹각 데이터 신뢰도(F-03b). 기본값은 VALID. */
+    val leanConfidence: LeanConfidence = LeanConfidence.VALID,
 )

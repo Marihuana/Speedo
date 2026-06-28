@@ -14,4 +14,6 @@ data class RideTelemetry(
     val brakeForce: Float,
     val latitude: Double?,
     val longitude: Double?,
+    /** 뱅킹각 신뢰도(F-03b). 지도/상세 렌더 시 OUTLIER_NOISE 는 0°로 평탄화한다. */
+    val leanConfidence: LeanConfidence = LeanConfidence.VALID,
 )

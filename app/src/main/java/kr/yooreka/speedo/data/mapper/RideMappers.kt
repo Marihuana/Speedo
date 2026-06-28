@@ -30,4 +30,5 @@ fun TelemetryEntity.toDomain(): RideTelemetry =
         brakeForce = brakeForce,
         latitude = latitude,
         longitude = longitude,
+        leanConfidence = leanConfidence,
     )
