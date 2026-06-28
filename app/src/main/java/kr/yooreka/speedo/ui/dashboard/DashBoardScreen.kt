@@ -122,8 +122,9 @@ fun DashBoardScreen(
             )
         }
 
-        // 주행 종료 예상 감지(F-18): 포그라운드일 때 확인 다이얼로그 표시.
-        if (state.autoStopSuggested) {
+        // 주행 종료 예상 감지(F-18): 기록 중 + 제안 상태일 때만 확인 다이얼로그 표시.
+        // (기록 중이 아닐 때는 잔존 제안 상태로 다이얼로그가 뜨지 않도록 isRecording 으로 게이트)
+        if (state.isRecording && state.autoStopSuggested) {
             AutoStopDialog(
                 onContinue = onAutoStopContinue,
                 onStop = onAutoStopConfirm,
