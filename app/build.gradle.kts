@@ -125,6 +125,10 @@ dependencies {
     implementation("com.google.android.gms:play-services-ads:23.0.0")
     implementation("com.android.billingclient:billing-ktx:6.2.0")
 
+    // Firebase Crashlytics (google-services.json 존재 시 플러그인이 적용되어 활성화됨)
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.crashlytics)
+
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.turbine)
