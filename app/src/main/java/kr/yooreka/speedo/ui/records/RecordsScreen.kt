@@ -154,14 +154,8 @@ fun RecordsScreen(
         }
 
         if (!isAdRemoved) {
-            BannerAd(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .background(Color(0xFF0F172A))
-                        .border(0.6.dp, Color(0xFF1E293B))
-                        .padding(top = 12.dp, bottom = 12.dp),
-            )
+            // 광고가 실제 로드된 경우에만 영역이 노출된다(배경/테두리는 BannerAd 내부에서 처리).
+            BannerAd(modifier = Modifier.fillMaxWidth())
         }
     }
 }
