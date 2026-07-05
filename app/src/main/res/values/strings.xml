@@ -128,6 +128,8 @@
     <string name="diagnostic_email_subject">Speedo lean diagnostics</string>
     <string name="diagnostic_email_body">Attaching %1$d lean measurement diagnostic CSV file(s).</string>
     <string name="diagnostic_chooser_title">Export diagnostics</string>
+    <string name="diagnostic_issue_marked">Issue moment marked in the diagnostic log.</string>
+    <string name="cd_report_issue">Report an issue</string>
 
     <!-- Dialogs -->
     <string name="dialog_connect_title">Sensor Connection</string>

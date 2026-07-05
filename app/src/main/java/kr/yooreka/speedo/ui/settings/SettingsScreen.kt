@@ -178,7 +178,7 @@ private fun shareDiagnosticCsv(
 }
 
 /** 진단 CSV Export 수신자(개발자). */
-private const val DIAGNOSTIC_EMAIL = "bracket0723@gmail.com"
+private const val DIAGNOSTIC_EMAIL = "bracket0723.dev@gmail.com"
 
 @Composable
 fun SettingsContent(
