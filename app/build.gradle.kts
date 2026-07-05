@@ -44,7 +44,7 @@ android {
         applicationId = "kr.yooreka.speedo"
         minSdk = 27
         targetSdk = 35
-        versionCode = 6
+        versionCode = 7
         versionName = "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
