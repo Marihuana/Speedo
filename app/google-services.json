@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "441429072644",
+    "project_id": "every-bari-36310",
+    "storage_bucket": "every-bari-36310.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:441429072644:android:94736bc26f7f5b34b8ce51",
+        "android_client_info": {
+          "package_name": "kr.yooreka.speedo"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD6Hb9F1TYWZQ-GW5y1G-zWo9KXoI3lnwk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
