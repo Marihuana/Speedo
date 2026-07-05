@@ -9,12 +9,14 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -30,12 +32,16 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Slider
@@ -524,8 +530,16 @@ fun CalibrationCard(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .height(60.dp)
-                        .background(Color(0xFF1D293D), RoundedCornerShape(16.dp))
+                        .height(63.dp)
+                        .shadow(
+                            elevation = 16.dp,
+                            shape = RoundedCornerShape(16.dp),
+                            clip = false,
+                            ambientColor = NeonGreen.copy(alpha = 0.15f),
+                            spotColor = NeonGreen.copy(alpha = 0.15f),
+                        )
+                        .background(Color.Transparent, RoundedCornerShape(16.dp))
+                        .border(BorderStroke(1.3.dp, NeonGreen), RoundedCornerShape(16.dp))
                         .combinedClickable(
                             enabled = !isCalibrating,
                             onClick = onCalibrateClick,
@@ -540,7 +554,7 @@ fun CalibrationCard(
                         } else {
                             stringResource(R.string.calibrate_button)
                         },
-                    color = Color.White,
+                    color = NeonGreen,
                     fontWeight = FontWeight.Black,
                     fontSize = 14.sp,
                     letterSpacing = 1.25.sp,
@@ -557,11 +571,11 @@ fun CalibrationCard(
 @Composable
 private fun leanModeLabel(mode: LeanMode): String =
     when (mode) {
-        LeanMode.GRAVITY_TILT -> "GRAVITY" + stringResource(R.string.lean_mode_gravity_suffix)
-        LeanMode.ACCEL_TILT -> "ACCELEROMETER"
-        LeanMode.ROTATION_VECTOR -> "ROTATION VECTOR"
-        LeanMode.GAME_ROTATION_VECTOR -> "GAME ROTATION VECTOR"
-        LeanMode.COMPLEMENTARY -> "COMPLEMENTARY" + stringResource(R.string.lean_mode_complementary_suffix)
+        LeanMode.GRAVITY_TILT -> stringResource(R.string.lean_mode_gravity)
+        LeanMode.ACCEL_TILT -> stringResource(R.string.lean_mode_accelerometer)
+        LeanMode.ROTATION_VECTOR -> stringResource(R.string.lean_mode_rotation_vector)
+        LeanMode.GAME_ROTATION_VECTOR -> stringResource(R.string.lean_mode_game_rotation_vector)
+        LeanMode.COMPLEMENTARY -> stringResource(R.string.lean_mode_complementary)
     }
 
 /**
@@ -574,6 +588,8 @@ fun LeanMeasurementCard(
     onModeSelected: (LeanMode) -> Unit,
     onExportDiagnostics: () -> Unit = {},
 ) {
+    var expanded by remember { mutableStateOf(false) }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
@@ -598,44 +614,94 @@ fun LeanMeasurementCard(
                 letterSpacing = 1.12.sp,
                 modifier = Modifier.fillMaxWidth(),
             )
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
-            LeanMode.entries.forEach { mode ->
-                val isSelected = mode == selectedMode
+            BoxWithConstraints(
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                val menuWidth = maxWidth
                 Row(
                     modifier =
                         Modifier
                             .fillMaxWidth()
-                            .clickable { onModeSelected(mode) }
-                            .padding(vertical = 10.dp),
+                            .height(65.dp)
+                            .background(Color(0xFF151F30), RoundedCornerShape(14.dp))
+                            .border(BorderStroke(0.7.dp, Color(0xFF314158)), RoundedCornerShape(14.dp))
+                            .clickable { expanded = true }
+                            .padding(horizontal = 16.dp),
                     verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    Box(
-                        modifier =
-                            Modifier
-                                .size(18.dp)
-                                .background(
-                                    if (isSelected) NeonGreen else Color.Transparent,
-                                    CircleShape,
-                                )
-                                .border(
-                                    1.5.dp,
-                                    if (isSelected) NeonGreen else Color(0xFF45556C),
-                                    CircleShape,
-                                ),
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
                     Text(
-                        text = leanModeLabel(mode),
-                        color = if (isSelected) Color.White else SlateText,
+                        text = leanModeLabel(selectedMode),
+                        color = Color.White,
                         fontSize = 13.sp,
-                        fontWeight = if (isSelected) FontWeight.Black else FontWeight.Bold,
+                        fontWeight = FontWeight.Bold,
                         letterSpacing = 0.2.sp,
                     )
+                    Icon(
+                        imageVector = Icons.Default.ArrowDropDown,
+                        contentDescription = "Dropdown Arrow",
+                        tint = Color(0xFFCAD5E2),
+                        modifier = Modifier.size(24.dp),
+                    )
+                }
+
+                DropdownMenu(
+                    expanded = expanded,
+                    onDismissRequest = { expanded = false },
+                    modifier =
+                        Modifier
+                            .width(menuWidth)
+                            .background(Color(0xFF1D293D))
+                            .border(BorderStroke(0.6.dp, Color(0xFF314158)), RoundedCornerShape(12.dp)),
+                ) {
+                    LeanMode.entries.forEachIndexed { index, mode ->
+                        val isSelected = mode == selectedMode
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    text = leanModeLabel(mode),
+                                    color = if (isSelected) NeonGreen else Color.White,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                    fontSize = 13.sp,
+                                )
+                            },
+                            onClick = {
+                                onModeSelected(mode)
+                                expanded = false
+                            },
+                            trailingIcon =
+                                if (isSelected) {
+                                    {
+                                        Icon(
+                                            imageVector = Icons.Rounded.Check,
+                                            contentDescription = "Selected",
+                                            tint = NeonGreen,
+                                            modifier = Modifier.size(20.dp),
+                                        )
+                                    }
+                                } else {
+                                    null
+                                },
+                            modifier =
+                                Modifier
+                                    .height(53.dp)
+                                    .background(
+                                        if (isSelected) Color(0xFF25354F) else Color.Transparent,
+                                    ),
+                        )
+                        if (index < LeanMode.entries.size - 1) {
+                            HorizontalDivider(
+                                color = Color(0xFF314158).copy(alpha = 0.6f),
+                                thickness = 0.7.dp,
+                            )
+                        }
+                    }
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(20.dp))
             HorizontalDivider(color = Color(0xFF314158), thickness = 1.dp)
             Spacer(modifier = Modifier.height(16.dp))
 

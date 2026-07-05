@@ -116,8 +116,11 @@
     <string name="lean_measurement_desc">Compare strategies, then keep the most accurate</string>
     <string name="diagnostic_logs_desc">Diagnostic logs are saved automatically while recording a ride.</string>
     <string name="export_measurements">EXPORT MEASUREMENTS</string>
-    <string name="lean_mode_gravity_suffix"> (Default)</string>
-    <string name="lean_mode_complementary_suffix"> (Gyro Fusion)</string>
+    <string name="lean_mode_gravity">Gravity Sensor</string>
+    <string name="lean_mode_accelerometer">Accelerometer Sensor</string>
+    <string name="lean_mode_rotation_vector">Rotation Vector (Compass Fusion)</string>
+    <string name="lean_mode_game_rotation_vector">Gyro + Accel Fusion (Recommended)</string>
+    <string name="lean_mode_complementary">Complementary Filter (Precision)</string>
     <string name="auto_stop_detection_title">Auto-Stop Detection</string>
     <string name="auto_stop_detection_desc">Confirm ride end when low speed persists</string>
     <string name="auto_stop_detection_time">Detection Time (min)</string>
