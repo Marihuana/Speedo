@@ -13,9 +13,12 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kr.yooreka.speedo.domain.model.LeanPhysicsGuard
 import kr.yooreka.speedo.domain.model.LocationData
 import kr.yooreka.speedo.domain.repository.LeanCalibrationRepository
+import kr.yooreka.speedo.domain.repository.LeanMeasurement
 import kr.yooreka.speedo.domain.repository.SensorRepository
+import kr.yooreka.speedo.domain.repository.YawRateMeasurement
 import java.io.BufferedWriter
 import java.io.File
 import javax.inject.Inject
@@ -35,11 +38,23 @@ class LeanDiagnosticLogger
         @ApplicationContext private val context: Context,
         private val locationRepo: SensorRepository<LocationData>,
         private val calibrationRepository: LeanCalibrationRepository,
+        private val leanMeasurement: LeanMeasurement,
+        private val yawRateMeasurement: YawRateMeasurement,
     ) : SensorEventListener {
         private val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
         private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         private var job: Job? = null
         private var writer: BufferedWriter? = null
+
+        // 사용자가 대시보드 ⚠️ 버튼으로 마킹한 이슈 구간(오차 발생 시점). 이 시각 이전의 행에는
+        // user_marked_issue=1 로 기록한다(탭 한 번이 짧아 놓치지 않도록 짧은 윈도우로 마킹).
+        @Volatile
+        private var markUntilMs = 0L
+
+        /** 대시보드 ⚠️ 이슈 제보(오차 발생 시점 마킹). 이후 짧은 윈도우 동안의 로그 행을 마킹한다. */
+        fun markIssue() {
+            markUntilMs = System.currentTimeMillis() + ISSUE_MARK_WINDOW_MS
+        }
 
         // 최신 원시 센서 값(센서 스레드에서 갱신, 타이머 스레드에서 읽음 — 진단용이라 느슨한 동기화 허용).
         private val accel = FloatArray(3)
@@ -93,6 +108,7 @@ class LeanDiagnosticLogger
 
         private fun writeRow() {
             val w = writer ?: return
+            val now = System.currentTimeMillis()
             val speed = locationRepo.dataStream.value.speed
             val offset = calibrationRepository.offsetDegrees.value
             val gravityLean = LeanMath.rollFromUpVector(gravity[0], gravity[1], gravity[2])
@@ -100,15 +116,30 @@ class LeanDiagnosticLogger
             val rotationLean = rotationVectorLean(rotationVector)
             val gameRotationLean = rotationVectorLean(gameRotationVector)
 
+            // 인앱에서 실제 사용 중인 활성 전략(F-03)의 값. 대시보드와 동일하게 raw roll 에 영점을 적용하고,
+            // 물리 가드(F-03b)로 보정 roll 과 신뢰도를 산출한다. 오프라인 분석 시 원시 5종과 교차 비교한다.
+            val activeLean = leanMeasurement.leanStream.value
+            val activeRawRoll = if (activeLean.isNaN()) LeanMath.NO_DATA else activeLean - offset
+            val guard =
+                if (activeRawRoll.isNaN()) {
+                    null
+                } else {
+                    LeanPhysicsGuard.evaluate(activeRawRoll, speed, yawRateMeasurement.yawRateStream.value)
+                }
+            val activeFilteredRoll = guard?.roll ?: LeanMath.NO_DATA
+            val activeConfidence = guard?.confidence?.name ?: ""
+            val userMarkedIssue = if (now < markUntilMs) 1 else 0
+
             val row =
                 listOf(
-                    System.currentTimeMillis(), speed, offset,
+                    now, speed, offset,
                     gravityLean, accelLean, rotationLean, gameRotationLean,
                     accel[0], accel[1], accel[2],
                     gravity[0], gravity[1], gravity[2],
                     gyro[0], gyro[1], gyro[2],
                     rotationVector[0], rotationVector[1], rotationVector[2], rotationVector[3],
                     gameRotationVector[0], gameRotationVector[1], gameRotationVector[2], gameRotationVector[3],
+                    activeRawRoll, activeFilteredRoll, activeConfidence, userMarkedIssue,
                 ).joinToString(",")
             runCatching { w.appendLine(row) }
         }
@@ -151,6 +182,9 @@ class LeanDiagnosticLogger
 
             private const val LOG_INTERVAL_MS = 100L
 
+            /** ⚠️ 이슈 제보 1회 탭이 마킹하는 로그 구간 길이(ms). */
+            private const val ISSUE_MARK_WINDOW_MS = 1500L
+
             private val SENSOR_TYPES =
                 listOf(
                     Sensor.TYPE_ACCELEROMETER,
@@ -167,6 +201,7 @@ class LeanDiagnosticLogger
                     "gravity_x,gravity_y,gravity_z," +
                     "gyro_x,gyro_y,gyro_z," +
                     "rotvec_x,rotvec_y,rotvec_z,rotvec_w," +
-                    "gamerotvec_x,gamerotvec_y,gamerotvec_z,gamerotvec_w"
+                    "gamerotvec_x,gamerotvec_y,gamerotvec_z,gamerotvec_w," +
+                    "active_raw_roll,active_filtered_roll,active_confidence,user_marked_issue"
         }
     }
