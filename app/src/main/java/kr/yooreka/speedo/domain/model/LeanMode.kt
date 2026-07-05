@@ -23,7 +23,7 @@ enum class LeanMode {
     ;
 
     companion object {
-        val DEFAULT: LeanMode = GRAVITY_TILT
+        val DEFAULT: LeanMode = GAME_ROTATION_VECTOR
 
         /** 영속 저장값(이름) 복원. null/빈값/알 수 없는 값이면 기본값. */
         fun fromName(name: String?): LeanMode {
