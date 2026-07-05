@@ -9,6 +9,13 @@ plugins {
     alias(libs.plugins.hilt.android)
 }
 
+// Firebase Crashlytics: google-services.json 이 있을 때만 플러그인을 적용한다. 파일이 없는 환경
+// (신규 클론/CI)에서도 빌드가 깨지지 않으며, 파일을 추가하면 크래시 리포팅이 자동 활성화된다.
+if (file("google-services.json").exists()) {
+    apply(plugin = libs.plugins.google.services.get().pluginId)
+    apply(plugin = libs.plugins.firebase.crashlytics.get().pluginId)
+}
+
 // local.properties(VCS 미커밋)에서 Maps API 키를 읽어옵니다. 없으면 빈 문자열로 폴백합니다.
 val mapsApiKey: String =
     Properties().apply {
@@ -63,11 +70,19 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // R8 코드 축소·난독화 및 미사용 리소스 제거(PRD Open Items [v1.0] #2).
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
+
+            // 네이티브 크래시 심볼 업로드용 디버그 심볼 수집(Play Console 경고 해결, [v1.0] #2).
+            ndk {
+                debugSymbolLevel = "FULL"
+            }
+
             if (hasReleaseKeystore) {
                 signingConfig = signingConfigs.getByName("release")
             }
