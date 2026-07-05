@@ -2,6 +2,7 @@ package kr.yooreka.speedo.domain.repository
 
 import android.app.Activity
 import kotlinx.coroutines.flow.StateFlow
+import kr.yooreka.speedo.domain.model.DonationProduct
 import kr.yooreka.speedo.domain.model.SubscriptionPlan
 
 /**
@@ -18,9 +19,15 @@ interface BillingRepository {
     /** 구매 가능한 구독 플랜(월간/연간). 상품 조회 전엔 빈 리스트. */
     val subscriptionPlans: StateFlow<List<SubscriptionPlan>>
 
+    /** 개발자 후원(일회성 인앱) 상품. 상품 조회 전이거나 미등록이면 null. */
+    val donationProduct: StateFlow<DonationProduct?>
+
     /** 선택한 구독 플랜의 결제 플로우를 시작한다. (결제 UI 특성상 Activity 필요) */
     fun launchBillingFlow(
         activity: Activity,
         plan: SubscriptionPlan,
     )
+
+    /** 개발자 후원(일회성) 결제 플로우를 시작한다. */
+    fun launchDonation(activity: Activity)
 }

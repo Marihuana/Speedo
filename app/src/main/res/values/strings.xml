@@ -131,6 +131,11 @@
     <string name="diagnostic_issue_marked">Issue moment marked in the diagnostic log.</string>
     <string name="cd_report_issue">Report an issue</string>
 
+    <!-- Developer donation (one-time in-app purchase) -->
+    <string name="donation_title">Buy the developer a motorcycle</string>
+    <string name="donation_desc">Enjoying Speedo? Support the developer with a small tip.</string>
+    <string name="donation_button">Support · %1$s</string>
+
     <!-- Dialogs -->
     <string name="dialog_connect_title">Sensor Connection</string>
     <string name="front_sensor_id">Front Sensor ID</string>
