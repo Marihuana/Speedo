@@ -115,8 +115,11 @@
     <string name="lean_measurement_desc">방식을 비교하고 가장 정확한 것을 선택하세요</string>
     <string name="diagnostic_logs_desc">진단 로그는 주행 기록 중 자동으로 저장됩니다.</string>
     <string name="export_measurements">측정값 내보내기</string>
-    <string name="lean_mode_gravity_suffix"> (기본)</string>
-    <string name="lean_mode_complementary_suffix"> (자이로 융합)</string>
+    <string name="lean_mode_gravity">중력 센서 측정</string>
+    <string name="lean_mode_accelerometer">가속도 센서 측정</string>
+    <string name="lean_mode_rotation_vector">기기 회전 센서 (자기장 보정)</string>
+    <string name="lean_mode_game_rotation_vector">자이로 + 가속도 융합 (추천)</string>
+    <string name="lean_mode_complementary">상보 필터 보정 (정밀)</string>
     <string name="auto_stop_detection_title">자동 종료 감지</string>
     <string name="auto_stop_detection_desc">저속이 지속되면 주행 종료를 확인합니다</string>
     <string name="auto_stop_detection_time">감지 시간 (분)</string>
