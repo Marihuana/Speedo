@@ -74,7 +74,7 @@
     <string name="calibrate_button">CALIBRATE ZERO POINT</string>
     <string name="calibrating">CALIBRATING…</string>
     <string name="calibration_reset">Calibration reset</string>
-    <string name="app_version">Every Bari Telemetry v1.2.0</string>
+    <string name="app_version">Every Bari Telemetry v1.0.0</string>
 
     <!-- Settings sections / cards -->
     <string name="section_account">Account &amp; Upgrades</string>
