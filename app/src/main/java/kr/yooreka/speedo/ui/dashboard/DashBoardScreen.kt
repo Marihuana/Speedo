@@ -1,5 +1,6 @@
 package kr.yooreka.speedo.ui.dashboard
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -27,6 +28,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -56,9 +58,13 @@ fun DashBoardScreen(
     onShowInterstitial: () -> Unit = {},
     onAutoStopContinue: () -> Unit = {},
     onAutoStopConfirm: () -> Unit = {},
+    onMarkIssue: () -> Unit = {},
 ) {
     var showStartDialog by remember { mutableStateOf(false) }
     val lifecycleOwner = LocalLifecycleOwner.current
+    val context = LocalContext.current
+    // 콜백(비 Composable 람다)에서 리소스 직접 조회를 피하기 위해 미리 읽어 둔다.
+    val issueMarkedMessage = stringResource(R.string.diagnostic_issue_marked)
 
     LaunchedEffect(lifecycleOwner) {
         lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -90,6 +96,10 @@ fun DashBoardScreen(
                 isRecording = state.isRecording,
                 maxLeftRoll = state.maxLeftRoll,
                 maxRightRoll = state.maxRightRoll,
+                onMarkIssue = {
+                    onMarkIssue()
+                    Toast.makeText(context, issueMarkedMessage, Toast.LENGTH_SHORT).show()
+                },
                 modifier =
                     Modifier
                         .fillMaxWidth()

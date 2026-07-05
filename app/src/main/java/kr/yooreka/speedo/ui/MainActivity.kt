@@ -205,6 +205,7 @@ fun MainPagerScreen(
                         },
                         onAutoStopContinue = { viewModel.onAutoStopContinue() },
                         onAutoStopConfirm = { viewModel.onAutoStopConfirm() },
+                        onMarkIssue = { viewModel.markDiagnosticIssue() },
                     )
                 }
                 1 -> {

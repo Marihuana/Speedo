@@ -16,6 +16,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.Icon
+import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -61,6 +65,7 @@ fun SpeedometerCard(
     isRecording: Boolean = false,
     maxLeftRoll: String = "0°",
     maxRightRoll: String = "0°",
+    onMarkIssue: (() -> Unit)? = null,
 ) {
     val speedInt = speedKmh.toIntOrNull() ?: 0
     val leanFloat = parseLeanAngle(leanAngle)
@@ -286,6 +291,24 @@ fun SpeedometerCard(
                     fontSize = maxValueFontSize,
                     fontWeight = FontWeight.Black,
                     letterSpacing = maxValueLetterSpacing,
+                )
+            }
+        }
+
+        // 테스터 진단용 이슈 제보(1.0 보완): 속도 위(상단 중앙)에 배치해 좌우 MAX 뱅킹각을 가리지 않는다.
+        if (isRecording && onMarkIssue != null) {
+            SmallFloatingActionButton(
+                onClick = onMarkIssue,
+                containerColor = Color(0xFFFB2C36),
+                contentColor = Color.White,
+                modifier =
+                    Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = edgePadding),
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Warning,
+                    contentDescription = stringResource(R.string.cd_report_issue),
                 )
             }
         }

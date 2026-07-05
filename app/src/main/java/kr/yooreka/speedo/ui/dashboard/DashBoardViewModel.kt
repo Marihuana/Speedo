@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kr.yooreka.speedo.data.local.preferences.UserPreferencesRepository
+import kr.yooreka.speedo.data.sensor.lean.LeanDiagnosticLogger
 import kr.yooreka.speedo.domain.model.LeanConfidence
 import kr.yooreka.speedo.domain.repository.BillingRepository
 import kr.yooreka.speedo.domain.repository.TelemetryRepository
@@ -37,6 +38,7 @@ class DashBoardViewModel
         private val userPreferencesRepository: UserPreferencesRepository,
         private val telemetryRepository: TelemetryRepository,
         private val billingRepository: BillingRepository,
+        private val leanDiagnosticLogger: LeanDiagnosticLogger,
     ) : ViewModel() {
         private val _uiEvent = MutableSharedFlow<DashBoardUiEvent>()
         val uiEvent = _uiEvent.asSharedFlow()
@@ -118,6 +120,11 @@ class DashBoardViewModel
 
         fun onConfirmRecording() {
             getDashboardTelemetryUseCase.startRecording()
+        }
+
+        /** 대시보드 ⚠️ 이슈 제보(1.0 보완): 진단 로그에 오차 발생 시점을 마킹한다(테스터 진단용). */
+        fun markDiagnosticIssue() {
+            leanDiagnosticLogger.markIssue()
         }
 
         /** 주행 종료 예상 다이얼로그 '아니오'(계속): 감지 타이머만 초기화하고 기록 유지(F-18). */
