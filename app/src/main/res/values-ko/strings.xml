@@ -73,7 +73,7 @@
     <string name="calibrate_button">영점 조절하기</string>
     <string name="calibrating">영점 조절 중…</string>
     <string name="calibration_reset">영점 보정값이 초기화되었습니다</string>
-    <string name="app_version">에브리바리 텔레메트리 v1.2.0</string>
+    <string name="app_version">에브리바리 텔레메트리 v1.0.0</string>
 
     <!-- Settings sections / cards -->
     <string name="section_account">계정 및 업그레이드</string>
