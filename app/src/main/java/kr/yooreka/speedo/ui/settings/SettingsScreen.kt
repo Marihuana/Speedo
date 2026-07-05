@@ -58,6 +58,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -70,6 +71,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kr.yooreka.speedo.R
+import kr.yooreka.speedo.domain.model.DonationProduct
 import kr.yooreka.speedo.domain.model.LeanMode
 import kr.yooreka.speedo.domain.model.OverlayMode
 import kr.yooreka.speedo.domain.model.OverlaySettings
@@ -131,6 +133,12 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                 viewModel.purchasePlan(activity, plan)
             }
         },
+        donationProduct = state.donationProduct,
+        onDonateClick = {
+            (context as? android.app.Activity)?.let { activity ->
+                viewModel.donate(activity)
+            }
+        },
         selectedLeanMode = state.leanMeasurementMode,
         onLeanModeChange = { viewModel.updateLeanMeasurementMode(it) },
         onExportDiagnostics = { shareDiagnosticCsv(context, viewModel.diagnosticCsvFiles()) },
@@ -190,6 +198,8 @@ fun SettingsContent(
     isAdRemoved: Boolean = false,
     subscriptionPlans: List<SubscriptionPlan> = emptyList(),
     onPurchasePlan: (SubscriptionPlan) -> Unit = {},
+    donationProduct: DonationProduct? = null,
+    onDonateClick: () -> Unit = {},
     selectedLeanMode: LeanMode = LeanMode.DEFAULT,
     onLeanModeChange: (LeanMode) -> Unit = {},
     onExportDiagnostics: () -> Unit = {},
@@ -265,32 +275,127 @@ fun SettingsContent(
                 )
             }
 
+            // 개발자 후원(오토바이 사주기): 상품이 조회된 경우에만 노출.
+            if (donationProduct != null) {
+                Spacer(modifier = Modifier.height(16.dp))
+                DonationCard(
+                    product = donationProduct,
+                    onDonateClick = onDonateClick,
+                )
+            }
+
             Spacer(modifier = Modifier.height(32.dp))
 
             // Version Info
-            Text(
-                text = stringResource(R.string.app_version),
+            Column(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 16.dp),
-                color = Color(0xFF45556C),
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Black,
-                textAlign = TextAlign.Center,
-                letterSpacing = 1.11.sp,
-            )
+                        .padding(vertical = 32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+            ) {
+                Image(
+                    painter = painterResource(id = R.drawable.ic_launcher),
+                    contentDescription = "App Icon",
+                    modifier =
+                        Modifier
+                            .size(64.dp)
+                            .shadow(
+                                elevation = 30.dp,
+                                shape = CircleShape,
+                                clip = false,
+                                ambientColor = NeonGreen.copy(alpha = 0.15f),
+                                spotColor = NeonGreen.copy(alpha = 0.15f),
+                            ),
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = stringResource(R.string.app_version).uppercase(),
+                    color = Color(0xFF45556C),
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = 1.11.sp,
+                    textAlign = TextAlign.Center,
+                )
+            }
         }
 
         if (!isAdRemoved) {
-            BannerAd(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .background(Color(0xFF0F172A))
-                        .border(0.6.dp, Color(0xFF1E293B))
-                        .padding(top = 12.dp, bottom = 12.dp),
-            )
+            // 광고가 실제 로드된 경우에만 영역이 노출된다(배경/테두리는 BannerAd 내부에서 처리).
+            BannerAd(modifier = Modifier.fillMaxWidth())
+        }
+    }
+}
+
+/** 개발자 후원(오토바이 사주기) 카드. 일회성 인앱 결제 상품이 조회된 경우에만 노출. */
+@Composable
+fun DonationCard(
+    product: DonationProduct,
+    onDonateClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        border = BorderStroke(0.6.dp, NeonGreen.copy(alpha = 0.2f)),
+    ) {
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .background(
+                        androidx.compose.ui.graphics.Brush.linearGradient(
+                            colors =
+                                listOf(
+                                    NeonGreen.copy(alpha = 0.1f),
+                                    Color.Transparent,
+                                ),
+                        ),
+                    ),
+        ) {
+            Column(modifier = Modifier.padding(24.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(text = "🏍️", fontSize = 28.sp)
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Column {
+                        Text(
+                            text = stringResource(R.string.donation_title),
+                            color = Color.White,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = (-0.71).sp,
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = stringResource(R.string.donation_desc),
+                            color = SlateSubText,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(20.dp))
+                Button(
+                    onClick = onDonateClick,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors =
+                        ButtonDefaults.buttonColors(
+                            containerColor = NeonGreen,
+                            contentColor = Color.Black,
+                        ),
+                    contentPadding = PaddingValues(vertical = 14.dp),
+                ) {
+                    Text(
+                        text = stringResource(R.string.donation_button, product.formattedPrice),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = (-0.3).sp,
+                    )
+                }
+            }
         }
     }
 }
