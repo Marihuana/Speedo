@@ -105,6 +105,11 @@
     <string name="overlay_permission_desc">다른 앱 위에 플로팅 위젯을 표시하려면 시스템 설정에서 \"다른 앱 위에 표시\" 권한을 허용해 주세요.</string>
     <string name="overlay_permission_confirm">설정 열기</string>
     <string name="overlay_permission_cancel">취소</string>
+    <!-- 대시보드 급제동 경고 (F-05) -->
+    <string name="brake_warning_light">약한 제동</string>
+    <string name="brake_warning_moderate">중간 제동</string>
+    <string name="brake_warning_hard">급제동</string>
+    <string name="cd_brake_warning">급제동 경고</string>
     <!-- 오버레이 위젯 화면 라벨 -->
     <string name="overlay_hard_brake">급브레이크</string>
     <string name="overlay_widget_speed">SPEED</string>

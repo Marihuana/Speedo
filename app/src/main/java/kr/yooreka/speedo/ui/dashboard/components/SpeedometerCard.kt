@@ -46,6 +46,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kr.yooreka.speedo.R
+import kr.yooreka.speedo.domain.model.BrakeEvent
 import kr.yooreka.speedo.ui.components.GaugeSide
 import kr.yooreka.speedo.ui.components.LeanGauge
 import kr.yooreka.speedo.ui.theme.NeonGreen
@@ -73,6 +74,7 @@ fun SpeedometerCard(
     isRecording: Boolean = false,
     maxLeftRoll: String = "0°",
     maxRightRoll: String = "0°",
+    brakeEvent: BrakeEvent = BrakeEvent.NONE,
     onMarkIssue: (() -> Unit)? = null,
 ) {
     val speedInt = speedKmh.toIntOrNull() ?: 0
@@ -320,6 +322,13 @@ fun SpeedometerCard(
                 )
             }
         }
+
+        // F-05: 급제동 3단계 시각 경고(카드 위 오버레이). NONE 이면 미노출.
+        BrakeWarningOverlay(
+            brakeEvent = brakeEvent,
+            cornerRadius = 24.dp,
+            modifier = Modifier.fillMaxSize(),
+        )
     }
 }
 
@@ -338,6 +347,16 @@ private fun PreviewRecording() {
         isRecording = true,
         maxLeftRoll = "24°",
         maxRightRoll = "28°",
+    )
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFF000000, name = "Speedometer - Hard Brake")
+@Composable
+private fun PreviewHardBrake() {
+    SpeedometerCard(
+        speedKmh = "42",
+        leanAngle = "6°",
+        brakeEvent = BrakeEvent.HARD,
     )
 }
 
@@ -387,63 +406,75 @@ fun SpeedometerOnlyCard(
     speedUnit: String,
     isRecording: Boolean,
     modifier: Modifier = Modifier,
+    brakeEvent: BrakeEvent = BrakeEvent.NONE,
     onMarkIssue: (() -> Unit)?,
 ) {
     val speedInt = speedKmh.toIntOrNull() ?: 0
 
-    Box(
-        modifier =
-            modifier
-                .shadow(
-                    elevation = 20.dp,
-                    shape = RoundedCornerShape(24.dp),
-                    ambientColor = Color(0x1A000000),
-                    spotColor = Color(0x1A000000),
-                )
-                .clip(RoundedCornerShape(24.dp))
-                .background(Color(0xFF1E293B))
-                .padding(24.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-            modifier = Modifier.fillMaxSize(),
+    // 콘텐츠 패딩과 무관하게 F-05 경고 테두리를 카드 모서리에 맞추기 위해 바깥 Box 로 감싼다.
+    Box(modifier = modifier) {
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .shadow(
+                        elevation = 20.dp,
+                        shape = RoundedCornerShape(24.dp),
+                        ambientColor = Color(0x1A000000),
+                        spotColor = Color(0x1A000000),
+                    )
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(Color(0xFF1E293B))
+                    .padding(24.dp),
+            contentAlignment = Alignment.Center,
         ) {
-            AutoSizeText(
-                text = speedInt.toString(),
-                color = SpeedTextColor,
-                minFontSize = 48f,
-                maxFontSize = 120f,
-                fontWeight = FontWeight.Black,
-                textAlign = TextAlign.Center,
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = speedUnit,
-                color = Color(0xFF90A1B9),
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 1.36.sp,
-                textAlign = TextAlign.Center,
-            )
-        }
-
-        if (isRecording && onMarkIssue != null) {
-            SmallFloatingActionButton(
-                onClick = onMarkIssue,
-                containerColor = Color(0xFFFB2C36),
-                contentColor = Color.White,
-                modifier =
-                    Modifier
-                        .align(Alignment.TopCenter),
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+                modifier = Modifier.fillMaxSize(),
             ) {
-                Icon(
-                    imageVector = Icons.Filled.Warning,
-                    contentDescription = stringResource(R.string.cd_report_issue),
+                AutoSizeText(
+                    text = speedInt.toString(),
+                    color = SpeedTextColor,
+                    minFontSize = 48f,
+                    maxFontSize = 120f,
+                    fontWeight = FontWeight.Black,
+                    textAlign = TextAlign.Center,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = speedUnit,
+                    color = Color(0xFF90A1B9),
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.36.sp,
+                    textAlign = TextAlign.Center,
                 )
             }
+
+            if (isRecording && onMarkIssue != null) {
+                SmallFloatingActionButton(
+                    onClick = onMarkIssue,
+                    containerColor = Color(0xFFFB2C36),
+                    contentColor = Color.White,
+                    modifier =
+                        Modifier
+                            .align(Alignment.TopCenter),
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Warning,
+                        contentDescription = stringResource(R.string.cd_report_issue),
+                    )
+                }
+            }
         }
+
+        // F-05: 급제동 3단계 시각 경고(카드 위 오버레이). NONE 이면 미노출.
+        BrakeWarningOverlay(
+            brakeEvent = brakeEvent,
+            cornerRadius = 24.dp,
+            modifier = Modifier.fillMaxSize(),
+        )
     }
 }
 

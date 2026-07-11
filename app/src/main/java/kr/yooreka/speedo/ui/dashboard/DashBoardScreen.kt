@@ -108,6 +108,7 @@ fun DashBoardScreen(
                         speedKmh = state.speed,
                         speedUnit = state.speedUnit,
                         isRecording = state.isRecording,
+                        brakeEvent = state.brakeEvent,
                         onMarkIssue = {
                             onMarkIssue()
                             Toast.makeText(context, issueMarkedMessage, Toast.LENGTH_SHORT).show()
@@ -161,6 +162,7 @@ fun DashBoardScreen(
                     isRecording = state.isRecording,
                     maxLeftRoll = state.maxLeftRoll,
                     maxRightRoll = state.maxRightRoll,
+                    brakeEvent = state.brakeEvent,
                     onMarkIssue = {
                         onMarkIssue()
                         Toast.makeText(context, issueMarkedMessage, Toast.LENGTH_SHORT).show()
