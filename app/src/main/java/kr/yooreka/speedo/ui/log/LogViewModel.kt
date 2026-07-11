@@ -32,6 +32,8 @@ data class LogState(
     val maxSpeed: String = "0",
     val routePoints: List<RideTelemetry> = emptyList(),
     val selectedPoint: RideTelemetry? = null,
+    // 잘못된/삭제된 rideId 접근 또는 상세 조회 실패 시 에러 화면 노출(PRD §3.2 error_invalid_ride, §4.2).
+    val isError: Boolean = false,
 )
 
 @HiltViewModel
@@ -52,16 +54,30 @@ class LogViewModel
         private val dateFormatter =
             DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm", Locale.getDefault()).withZone(ZoneId.systemDefault())
 
+        // 현재 로드된 주행 id. 마스터-디테일(가로 기록탭)에서 동일 주행 재선택 시 중복 로드를 막는다.
+        private var loadedRideId: Long? = null
+
         init {
             val rideId = savedStateHandle.get<Long>("rideId") ?: -1L
             if (rideId != -1L) {
                 fetchRideDetails(rideId)
             } else {
-                _uiState.value = _uiState.value.copy(isLoading = false, title = "Error: Invalid Ride ID")
+                _uiState.value = _uiState.value.copy(isLoading = false, isError = true)
             }
         }
 
+        /**
+         * 지정한 주행 상세를 로드한다(가로 기록탭 마스터-디테일 우측 패널 진입점).
+         * nav 인자로 rideId가 오지 않는 재사용 컨텍스트에서 선택된 주행을 갱신하기 위해 사용한다.
+         */
+        fun loadRide(rideId: Long) {
+            if (rideId == loadedRideId) return
+            _uiState.value = LogState(isLoading = true)
+            fetchRideDetails(rideId)
+        }
+
         private fun fetchRideDetails(rideId: Long) {
+            loadedRideId = rideId
             viewModelScope.launch {
                 val telemetryData = getRideTelemetryUseCase(rideId).getOrDefault(emptyList())
                 // CPU 집약 보간(F-13c/d)은 Default 디스패처로 오프로딩해 UI/지도 렌더와 경합하지 않게 한다.
@@ -88,7 +104,7 @@ class LogViewModel
                             )
                     },
                     onFailure = {
-                        _uiState.value = LogState(isLoading = false, title = "Record not found")
+                        _uiState.value = LogState(isLoading = false, isError = true)
                     },
                 )
             }

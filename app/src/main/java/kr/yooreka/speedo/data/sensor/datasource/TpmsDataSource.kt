@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kr.yooreka.speedo.data.local.preferences.UserPreferencesRepository
 import kr.yooreka.speedo.domain.model.TpmsData
+import kr.yooreka.speedo.domain.repository.CrashReporter
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import javax.inject.Inject
@@ -31,9 +32,13 @@ class TpmsDataSource
     constructor(
         @ApplicationContext private val context: Context,
         private val prefsRepo: UserPreferencesRepository,
+        private val crashReporter: CrashReporter,
     ) : SensorDataSource<TpmsData> {
         private val _dataFlow = MutableStateFlow(TpmsData())
         override val dataFlow: StateFlow<TpmsData> = _dataFlow.asStateFlow()
+
+        // BLE 페이로드 파싱 실패는 패킷마다 반복될 수 있어, 세션당 1회만 비치명적 리포트한다(스팸 방지).
+        private var payloadParseReported = false
 
         private var scanCallback: ScanCallback? = null
         private val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
@@ -49,6 +54,7 @@ class TpmsDataSource
         override fun start() {
             if (scanCallback != null) return
 
+            payloadParseReported = false
             job =
                 scope.launch {
                     val prefs = prefsRepo.userPreferencesFlow.first()
@@ -93,7 +99,9 @@ class TpmsDataSource
             try {
                 scanner?.startScan(null, settings, scanCallback)
             } catch (e: Exception) {
+                // BLE 스캔 시작 실패(어댑터 상태/권한 등). start() 당 1회만 발생하므로 그대로 리포트(PRD §7.1).
                 Log.e("TpmsDataSource", "BLE Scan start failed: ${e.message}")
+                crashReporter.recordNonFatal(e, "TPMS BLE scan start failed")
             }
         }
 
@@ -160,7 +168,12 @@ class TpmsDataSource
                     }
                 }
             } catch (e: Exception) {
+                // 센서 정합성 오류(PRD §7.1). 패킷마다 반복될 수 있어 세션당 1회만 리포트한다(스팸 방지).
                 Log.e("TpmsDataSource", "Failed to parse TPMS payload", e)
+                if (!payloadParseReported) {
+                    payloadParseReported = true
+                    crashReporter.recordNonFatal(e, "TPMS payload parse failed")
+                }
             }
         }
 

@@ -34,6 +34,7 @@
     <string name="records_title">주행 기록</string>
     <string name="records_subtitle">나의 라이딩 히스토리</string>
     <string name="total_distance">총 누적 거리</string>
+    <string name="records_empty">저장된 주행 기록이 없습니다. 새로운 주행을 시작해 보세요!</string>
     <string name="kilometers">킬로미터</string>
     <string name="duration">주행 시간</string>
     <string name="distance">거리</string>
@@ -73,22 +74,38 @@
     <string name="calibrate_button">영점 조절하기</string>
     <string name="calibrating">영점 조절 중…</string>
     <string name="calibration_reset">영점 보정값이 초기화되었습니다</string>
-    <string name="app_version">에브리바리 텔레메트리 v1.2.0</string>
+    <string name="app_version">에브리바리 텔레메트리 v1.0.0</string>
 
     <!-- Settings sections / cards -->
     <string name="section_account">계정 및 업그레이드</string>
     <string name="speed_unit_label">속도 단위</string>
     <string name="lean_calibration_label">기울기 센서 영점 조절</string>
     <string name="lean_calibration_desc">센서의 수평 영점을 초기화합니다.</string>
-    <string name="premium_version">프리미엄 버전</string>
-    <string name="premium_desc">구독으로 모든 광고를 제거합니다</string>
-    <string name="premium_plan_monthly">월간</string>
-    <string name="premium_plan_yearly">연간</string>
-    <string name="premium_plan_format">%1$s · %2$s</string>
-    <string name="premium_free_trial">무료체험 제공</string>
+    <string name="premium_version">PREMIUM VERSION</string>
+    <string name="premium_desc">REMOVE ALL ADS PERMANENTLY</string>
     <string name="premium_loading">구독 상품을 불러오는 중…</string>
     <string name="premium_active_title">프리미엄 사용 중</string>
     <string name="premium_active_desc">광고 없는 경험이 활성화되었습니다</string>
+    <!-- 구독 카드: 골드 2플랜 셀렉터 (F-27 리디자인) -->
+    <string name="premium_plan_yearly_name">연간 구독</string>
+    <string name="premium_plan_monthly_name">월간 구독</string>
+    <string name="premium_yearly_saving">연간 %1$d%% 절약</string>
+    <string name="premium_yearly_note">월 %1$s 환산</string>
+    <string name="premium_monthly_note">언제든 해지 가능</string>
+    <string name="premium_period_year">년</string>
+    <string name="premium_period_month">월</string>
+    <string name="premium_cta">14일 무료 체험 후 구독하기</string>
+    <string name="premium_trial_notice_yearly">14일 동안 무료로 사용해 보세요. 이후 연 %1$s 자동 결제됩니다.</string>
+    <string name="premium_trial_notice_monthly">14일 동안 무료로 사용해 보세요. 이후 월 %1$s 자동 결제됩니다.</string>
+    <string name="premium_have_coupon">쿠폰 코드가 있으신가요?</string>
+    <!-- 쿠폰 등록 다이얼로그 (F-27) -->
+    <string name="coupon_dialog_title">쿠폰 코드 입력</string>
+    <string name="coupon_dialog_subtitle">광고 제거 무료 이용권</string>
+    <string name="coupon_input_hint">쿠폰 코드를 입력하세요</string>
+    <string name="coupon_input_helper">대소문자 구분 없이 입력하세요.\n(예: EVERYBARI3)</string>
+    <string name="coupon_submit">쿠폰 등록하기</string>
+    <string name="cd_coupon_icon">쿠폰</string>
+    <string name="cd_close">닫기</string>
     <!-- 플로팅 오버레이 위젯 (F-19) -->
     <string name="overlay_title">플로팅 오버레이</string>
     <string name="overlay_desc">주행 중 다른 앱 위에 속도·기울기·제동 정보를 표시합니다</string>
@@ -105,6 +122,11 @@
     <string name="overlay_permission_desc">다른 앱 위에 플로팅 위젯을 표시하려면 시스템 설정에서 \"다른 앱 위에 표시\" 권한을 허용해 주세요.</string>
     <string name="overlay_permission_confirm">설정 열기</string>
     <string name="overlay_permission_cancel">취소</string>
+    <!-- 대시보드 급제동 경고 (F-05) -->
+    <string name="brake_warning_light">약한 제동</string>
+    <string name="brake_warning_moderate">중간 제동</string>
+    <string name="brake_warning_hard">급제동</string>
+    <string name="cd_brake_warning">급제동 경고</string>
     <!-- 오버레이 위젯 화면 라벨 -->
     <string name="overlay_hard_brake">급브레이크</string>
     <string name="overlay_widget_speed">SPEED</string>
@@ -115,8 +137,11 @@
     <string name="lean_measurement_desc">방식을 비교하고 가장 정확한 것을 선택하세요</string>
     <string name="diagnostic_logs_desc">진단 로그는 주행 기록 중 자동으로 저장됩니다.</string>
     <string name="export_measurements">측정값 내보내기</string>
-    <string name="lean_mode_gravity_suffix"> (기본)</string>
-    <string name="lean_mode_complementary_suffix"> (자이로 융합)</string>
+    <string name="lean_mode_gravity">중력 센서 측정</string>
+    <string name="lean_mode_accelerometer">가속도 센서 측정</string>
+    <string name="lean_mode_rotation_vector">기기 회전 센서 (자기장 보정)</string>
+    <string name="lean_mode_game_rotation_vector">자이로 + 가속도 융합 (추천)</string>
+    <string name="lean_mode_complementary">상보 필터 보정 (정밀)</string>
     <string name="auto_stop_detection_title">자동 종료 감지</string>
     <string name="auto_stop_detection_desc">저속이 지속되면 주행 종료를 확인합니다</string>
     <string name="auto_stop_detection_time">감지 시간 (분)</string>
@@ -124,6 +149,22 @@
     <string name="diagnostic_email_subject">Speedo lean diagnostics</string>
     <string name="diagnostic_email_body">lean 측정 진단 CSV(%1$d개)를 첨부합니다.</string>
     <string name="diagnostic_chooser_title">진단 데이터 내보내기</string>
+    <string name="diagnostic_issue_marked">오차 발생 시점을 진단 로그에 기록했습니다.</string>
+    <string name="cd_report_issue">이슈 제보</string>
+
+    <!-- 개발자 후원(일회성 인앱 결제) -->
+    <string name="donation_title">개발자에게 오토바이 사주기</string>
+    <string name="donation_desc">Speedo가 마음에 드셨다면 개발자에게 후원해 주세요.</string>
+    <string name="donation_button">후원하기 · %1$s</string>
+    <!-- 개발자 오토바이 사주기 이스터에그 2중 컨펌(F-24). 금액은 하드코딩 대신 리소스로 관리. -->
+    <string name="donation_amount">600,000원</string>
+    <string name="donation_button_easter_egg">개발자에게 오토바이 사주기 (%1$s)</string>
+    <string name="donation_confirm_first_message">진짜 사주시는 건가요? %1$s이 구글 플레이 인앱 결제(IAP)로 청구됩니다.</string>
+    <string name="donation_confirm_first_confirm">확인</string>
+    <string name="donation_confirm_first_dismiss">역시 장난입니다</string>
+    <string name="donation_confirm_second_message">잠깐, 농담이 아니라 진짜 진심으로 사주시는 건가요? 결제된 금액은 개발자의 오토바이 구매 비용으로 소중히 사용됩니다.</string>
+    <string name="donation_confirm_second_confirm">진짜 결제할래요</string>
+    <string name="donation_confirm_second_dismiss">취소</string>
 
     <!-- Dialogs -->
     <string name="dialog_connect_title">센서 연결</string>
@@ -153,6 +194,7 @@
     <string name="summary_max_lean">MAX LEAN</string>
     <string name="segment_prev">◀ 이전</string>
     <string name="segment_next">다음 ▶</string>
+    <string name="error_invalid_ride">존재하지 않거나 삭제된 주행 기록입니다.</string>
 
     <!-- Splash -->
     <string name="splash_title">EVERY BARI</string>
@@ -171,4 +213,12 @@
 
     <!-- Misc -->
     <string name="press_back_again_to_exit">한 번 더 누르시면 앱이 종료됩니다.</string>
+
+    <!-- Safety Guide -->
+    <string name="guide_safety_mount_title">휴대폰을 가급적 중앙에 거치하세요</string>
+    <string name="guide_safety_mount_message">스마트폰을 스템 마운트로 핸들바 정중앙에 고정하면 가장 정확한 뱅킹 각도를 측정할 수 있습니다. 좌우 비대칭 거치 시 오차가 커집니다.</string>
+    <string name="guide_safety_next">다음</string>
+    <string name="guide_safety_title">측정값은 참고용입니다</string>
+    <string name="guide_safety_message">뱅킹 각도는 가속도 센서와 자이로 센서를 조합해 계산됩니다. 도로 상태·진동·거치 위치에 따라 오차가 발생할 수 있으니 절대값으로 맹신하지 마세요.</string>
+    <string name="guide_safety_confirm">시작하기</string>
 </resources>

@@ -5,16 +5,20 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import kr.yooreka.speedo.domain.model.LeanMode
 import kr.yooreka.speedo.domain.model.OverlayMode
 import kr.yooreka.speedo.domain.model.OverlaySettings
 import kr.yooreka.speedo.domain.model.OverlaySize
+import kr.yooreka.speedo.domain.repository.CrashReporter
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -29,6 +33,7 @@ data class UserPreferences(
     val launchCount: Int,
     val leanMeasurementMode: String,
     val autoStopThresholdMin: Int,
+    val isFirstLaunch: Boolean,
 )
 
 @Singleton
@@ -36,7 +41,10 @@ class UserPreferencesRepository
     @Inject
     constructor(
         @ApplicationContext private val context: Context,
+        private val crashReporter: CrashReporter,
     ) {
+        private var fallbackIsFirstLaunch: Boolean = true
+
         private object PreferencesKeys {
             val SHOW_TPMS_DATA = booleanPreferencesKey("show_tpms_data")
             val SPEED_UNIT = stringPreferencesKey("speed_unit")
@@ -50,6 +58,10 @@ class UserPreferencesRepository
             val OVERLAY_MODE = stringPreferencesKey("overlay_mode")
             val OVERLAY_SIZE = stringPreferencesKey("overlay_size")
             val OVERLAY_OPACITY = intPreferencesKey("overlay_opacity")
+            val IS_FIRST_LAUNCH = booleanPreferencesKey("is_first_launch")
+            val LEAN_OFFSET_DEGREES = floatPreferencesKey("lean_offset_degrees")
+            val OVERLAY_POS_X = intPreferencesKey("overlay_pos_x")
+            val OVERLAY_POS_Y = intPreferencesKey("overlay_pos_y")
         }
 
         val userPreferencesFlow: Flow<UserPreferences> =
@@ -64,6 +76,7 @@ class UserPreferencesRepository
                     val leanMeasurementMode =
                         preferences[PreferencesKeys.LEAN_MEASUREMENT_MODE] ?: LeanMode.DEFAULT.name
                     val autoStopThresholdMin = preferences[PreferencesKeys.AUTO_STOP_THRESHOLD] ?: DEFAULT_AUTO_STOP_MIN
+                    val isFirstLaunch = preferences[PreferencesKeys.IS_FIRST_LAUNCH] ?: fallbackIsFirstLaunch
 
                     UserPreferences(
                         showTpmsData = showTpmsData,
@@ -74,6 +87,24 @@ class UserPreferencesRepository
                         launchCount = launchCount,
                         leanMeasurementMode = leanMeasurementMode,
                         autoStopThresholdMin = autoStopThresholdMin,
+                        isFirstLaunch = isFirstLaunch,
+                    )
+                }
+                .catch { e ->
+                    // 디스크 Full 등 DataStore IO 에러(PRD §4.6). 메모리 캐시 폴백으로 세션을 유지하되 원인을 리포트한다.
+                    crashReporter.recordNonFatal(e, "UserPreferences read failed; falling back to defaults/memory cache")
+                    emit(
+                        UserPreferences(
+                            showTpmsData = false,
+                            speedUnit = "KM/H",
+                            pressureUnit = "PSI",
+                            frontTpmsId = "",
+                            rearTpmsId = "",
+                            launchCount = 0,
+                            leanMeasurementMode = LeanMode.DEFAULT.name,
+                            autoStopThresholdMin = DEFAULT_AUTO_STOP_MIN,
+                            isFirstLaunch = fallbackIsFirstLaunch,
+                        ),
                     )
                 }
 
@@ -87,6 +118,18 @@ class UserPreferencesRepository
             context.dataStore.data
                 .map { it[PreferencesKeys.AUTO_STOP_THRESHOLD] ?: DEFAULT_AUTO_STOP_MIN }
 
+        /**
+         * 기울기 영점 보정값(도, F-04). 프로세스 킬에 대비해 영속화하며,
+         * 사용자가 수동 초기화(reset)하기 전까지 보존한다. 값 없음/IO 에러 시 0f.
+         */
+        val leanOffsetDegreesFlow: Flow<Float> =
+            context.dataStore.data
+                .map { it[PreferencesKeys.LEAN_OFFSET_DEGREES] ?: DEFAULT_LEAN_OFFSET_DEGREES }
+                .catch { e ->
+                    crashReporter.recordNonFatal(e, "leanOffset read failed; falling back to 0f")
+                    emit(DEFAULT_LEAN_OFFSET_DEGREES)
+                }
+
         /** 플로팅 오버레이 위젯 설정(F-19a/F-19b). */
         val overlaySettingsFlow: Flow<OverlaySettings> =
             context.dataStore.data
@@ -98,6 +141,48 @@ class UserPreferencesRepository
                         opacity = preferences[PreferencesKeys.OVERLAY_OPACITY] ?: DEFAULT_OVERLAY_OPACITY,
                     )
                 }
+
+        /**
+         * 플로팅 오버레이 위젯 위치(F-19b). 사용자가 드래그로 옮긴 좌표를 영속화한다.
+         * 저장된 값이 없으면 null(서비스가 초기 위치 사용).
+         */
+        val overlayPositionFlow: Flow<Pair<Int, Int>?> =
+            context.dataStore.data
+                .map { preferences ->
+                    val x = preferences[PreferencesKeys.OVERLAY_POS_X]
+                    val y = preferences[PreferencesKeys.OVERLAY_POS_Y]
+                    if (x != null && y != null) x to y else null
+                }
+
+        /** 오버레이 위젯 위치(F-19b)를 영속 저장한다. 드래그 종료 시 호출. */
+        suspend fun updateOverlayPosition(
+            x: Int,
+            y: Int,
+        ) {
+            try {
+                context.dataStore.edit { preferences ->
+                    preferences[PreferencesKeys.OVERLAY_POS_X] = x
+                    preferences[PreferencesKeys.OVERLAY_POS_Y] = y
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                crashReporter.recordNonFatal(e, "updateOverlayPosition persistence failed")
+            }
+        }
+
+        suspend fun updateFirstLaunch(isFirstLaunch: Boolean) {
+            try {
+                context.dataStore.edit { preferences ->
+                    preferences[PreferencesKeys.IS_FIRST_LAUNCH] = isFirstLaunch
+                }
+                fallbackIsFirstLaunch = isFirstLaunch
+            } catch (e: Exception) {
+                // 최초 실행 플래그 영속화 실패(PRD §4.6). 메모리 캐시로 당해 세션 동작을 보장하고 원인을 리포트한다.
+                fallbackIsFirstLaunch = isFirstLaunch
+                crashReporter.recordNonFatal(e, "updateFirstLaunch persistence failed; using in-memory fallback")
+            }
+        }
 
         suspend fun incrementLaunchCount() {
             context.dataStore.edit { preferences ->
@@ -185,9 +270,28 @@ class UserPreferencesRepository
             }
         }
 
+        /**
+         * 기울기 영점 보정값(도) 저장/클리어(F-04). reset 시 0f 를 전달해 초기화한다.
+         * IO 에러 시 앱을 죽이지 않고 non-fatal 로 기록한다(PRD §4.6).
+         */
+        suspend fun updateLeanOffset(offsetDegrees: Float) {
+            try {
+                context.dataStore.edit { preferences ->
+                    preferences[PreferencesKeys.LEAN_OFFSET_DEGREES] = offsetDegrees
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                crashReporter.recordNonFatal(e, "updateLeanOffset persistence failed")
+            }
+        }
+
         companion object {
             /** 주행 종료 예상 감지 기본 임계값(분). */
             const val DEFAULT_AUTO_STOP_MIN = 5
+
+            /** 기울기 영점 보정 기본값(도). */
+            const val DEFAULT_LEAN_OFFSET_DEGREES = 0f
 
             /** 오버레이 기본 투명도(%). */
             const val DEFAULT_OVERLAY_OPACITY = 100

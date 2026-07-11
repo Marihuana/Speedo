@@ -9,6 +9,13 @@ plugins {
     alias(libs.plugins.hilt.android)
 }
 
+// Firebase Crashlytics: google-services.json 이 있을 때만 플러그인을 적용한다. 파일이 없는 환경
+// (신규 클론/CI)에서도 빌드가 깨지지 않으며, 파일을 추가하면 크래시 리포팅이 자동 활성화된다.
+if (file("google-services.json").exists()) {
+    apply(plugin = libs.plugins.google.services.get().pluginId)
+    apply(plugin = libs.plugins.firebase.crashlytics.get().pluginId)
+}
+
 // local.properties(VCS 미커밋)에서 Maps API 키를 읽어옵니다. 없으면 빈 문자열로 폴백합니다.
 val mapsApiKey: String =
     Properties().apply {
@@ -37,17 +44,17 @@ android {
         applicationId = "kr.yooreka.speedo"
         minSdk = 27
         targetSdk = 35
-        versionCode = 4
-        versionName = "0.2.1"
+        versionCode = 8
+        versionName = "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         // AndroidManifest의 ${MAPS_API_KEY} 자리에 주입됩니다.
         manifestPlaceholders["MAPS_API_KEY"] = mapsApiKey
 
-        // 광고 노출 여부. 알파 테스트 기간에는 광고를 노출하지 않는다(false).
-        // 정식 출시 시 true 로 변경(또는 release 빌드타입에서 override).
-        buildConfigField("boolean", "ADS_ENABLED", "false")
+        // 광고 노출 여부(마스터 스위치). 광고 단위 ID 는 BannerAd/AdManager 에서 debug=구글 테스트 ID,
+        // release=프로덕션 ID 로 분기하므로, debug 에서 광고를 켜도 테스트 광고만 노출되어 정책 위반이 없다.
+        buildConfigField("boolean", "ADS_ENABLED", "true")
     }
 
     signingConfigs {
@@ -62,12 +69,26 @@ android {
     }
 
     buildTypes {
+        debug {
+            // Crashlytics 변형 분리: debug 는 별도 Firebase 앱(kr.yooreka.speedo.debug)으로 크래시를 보고한다.
+            // google-services.json 에 해당 클라이언트가 등록되어 있어야 한다.
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
+        }
         release {
-            isMinifyEnabled = false
+            // R8 코드 축소·난독화 및 미사용 리소스 제거(PRD Open Items [v1.0] #2).
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
+
+            // 네이티브 크래시 심볼 업로드용 디버그 심볼 수집(Play Console 경고 해결, [v1.0] #2).
+            ndk {
+                debugSymbolLevel = "FULL"
+            }
+
             if (hasReleaseKeystore) {
                 signingConfig = signingConfigs.getByName("release")
             }
@@ -91,6 +112,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.core.splashscreen)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)
@@ -124,6 +146,10 @@ dependencies {
     // AdMob & Billing
     implementation("com.google.android.gms:play-services-ads:23.0.0")
     implementation("com.android.billingclient:billing-ktx:6.2.0")
+
+    // Firebase Crashlytics (google-services.json 존재 시 플러그인이 적용되어 활성화됨)
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.crashlytics)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

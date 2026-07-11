@@ -2,11 +2,13 @@ package kr.yooreka.speedo.data.billing
 
 import android.app.Activity
 import android.content.Context
+import android.util.Log
 import com.android.billingclient.api.AcknowledgePurchaseParams
 import com.android.billingclient.api.BillingClient
 import com.android.billingclient.api.BillingClientStateListener
 import com.android.billingclient.api.BillingFlowParams
 import com.android.billingclient.api.BillingResult
+import com.android.billingclient.api.ConsumeParams
 import com.android.billingclient.api.ProductDetails
 import com.android.billingclient.api.Purchase
 import com.android.billingclient.api.PurchasesUpdatedListener
@@ -20,6 +22,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kr.yooreka.speedo.domain.model.DonationProduct
 import kr.yooreka.speedo.domain.model.SubscriptionPlan
 import kr.yooreka.speedo.domain.repository.BillingRepository
 import javax.inject.Inject
@@ -32,12 +35,17 @@ class BillingRepositoryImpl
         @ApplicationContext private val context: Context,
     ) : BillingRepository, PurchasesUpdatedListener, BillingClientStateListener {
         companion object {
+            private const val TAG = "BillingRepo"
+
             // Dev Testing Flag: Set to true to mock "Ads Removed" state globally
             const val FORCE_ADS_OFF = false
 
             // 광고 제거 구독 상품 ID(Play Console과 일치 필요). 월간/연간은 base plan ID가 아니라
             // 결제 주기(billingPeriod)로 판별해 콘솔 네이밍에 의존하지 않는다.
             private const val SUBSCRIPTION_PRODUCT_ID = "remove_ads_subscription"
+
+            // 개발자 후원(일회성 소비성 인앱) 상품 ID(Play Console과 일치 필요).
+            private const val DONATION_PRODUCT_ID = "buy_developer_motorcycle"
         }
 
         // @Singleton 수명과 함께 사는 구조적 스코프(즉석 CoroutineScope 생성 금지).
@@ -49,6 +57,9 @@ class BillingRepositoryImpl
         private val _subscriptionPlans = MutableStateFlow<List<SubscriptionPlan>>(emptyList())
         override val subscriptionPlans: StateFlow<List<SubscriptionPlan>> = _subscriptionPlans.asStateFlow()
 
+        private val _donationProduct = MutableStateFlow<DonationProduct?>(null)
+        override val donationProduct: StateFlow<DonationProduct?> = _donationProduct.asStateFlow()
+
         private val billingClient: BillingClient =
             BillingClient.newBuilder(context)
                 .setListener(this)
@@ -56,6 +67,7 @@ class BillingRepositoryImpl
                 .build()
 
         private var productDetails: ProductDetails? = null
+        private var donationDetails: ProductDetails? = null
 
         init {
             if (!FORCE_ADS_OFF) {
@@ -68,9 +80,12 @@ class BillingRepositoryImpl
         }
 
         override fun onBillingSetupFinished(billingResult: BillingResult) {
+            Log.d(TAG, "onBillingSetupFinished: code=${billingResult.responseCode} msg=${billingResult.debugMessage}")
             if (billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
                 queryPurchases()
                 queryProductDetails()
+                queryDonationProductDetails()
+                queryDonationPurchases()
             }
         }
 
@@ -110,10 +125,59 @@ class BillingRepositoryImpl
                     .build()
 
             billingClient.queryProductDetailsAsync(queryProductDetailsParams) { billingResult, productDetailsList ->
+                Log.d(
+                    TAG,
+                    "SUBS queryProductDetails: code=${billingResult.responseCode} " +
+                        "msg=${billingResult.debugMessage} count=${productDetailsList.size}",
+                )
                 if (billingResult.responseCode == BillingClient.BillingResponseCode.OK && productDetailsList.isNotEmpty()) {
                     val details = productDetailsList.first()
                     productDetails = details
                     _subscriptionPlans.value = buildPlans(details)
+                }
+            }
+        }
+
+        /** 후원(일회성 인앱) 상품 정보를 조회해 가격을 노출한다. 미등록이면 null 유지(버튼 비노출). */
+        private fun queryDonationProductDetails() {
+            val params =
+                QueryProductDetailsParams.newBuilder()
+                    .setProductList(
+                        listOf(
+                            QueryProductDetailsParams.Product.newBuilder()
+                                .setProductId(DONATION_PRODUCT_ID)
+                                .setProductType(BillingClient.ProductType.INAPP)
+                                .build(),
+                        ),
+                    )
+                    .build()
+
+            billingClient.queryProductDetailsAsync(params) { billingResult, productDetailsList ->
+                Log.d(
+                    TAG,
+                    "INAPP(donation) queryProductDetails: code=${billingResult.responseCode} " +
+                        "msg=${billingResult.debugMessage} count=${productDetailsList.size}",
+                )
+                if (billingResult.responseCode == BillingClient.BillingResponseCode.OK && productDetailsList.isNotEmpty()) {
+                    val details = productDetailsList.first()
+                    donationDetails = details
+                    details.oneTimePurchaseOfferDetails?.formattedPrice?.let { price ->
+                        _donationProduct.value = DonationProduct(details.productId, price)
+                    }
+                }
+            }
+        }
+
+        /** 앱 시작 시 남아있는 미소비 후원 결제를 정리(consume)한다(앱이 소비 전 종료된 경우 대비). */
+        private fun queryDonationPurchases() {
+            if (!billingClient.isReady) return
+            val params =
+                QueryPurchasesParams.newBuilder()
+                    .setProductType(BillingClient.ProductType.INAPP)
+                    .build()
+            billingClient.queryPurchasesAsync(params) { billingResult, purchases ->
+                if (billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
+                    consumeDonations(purchases)
                 }
             }
         }
@@ -148,6 +212,8 @@ class BillingRepositoryImpl
                         productId = details.productId,
                         offerToken = offer.offerToken,
                         formattedPrice = recurring.formattedPrice,
+                        priceAmountMicros = recurring.priceAmountMicros,
+                        priceCurrencyCode = recurring.priceCurrencyCode,
                         hasFreeTrial = trial != null,
                         freeTrialPeriod = trial?.billingPeriod,
                     )
@@ -186,14 +252,54 @@ class BillingRepositoryImpl
             billingClient.launchBillingFlow(activity, billingFlowParams)
         }
 
+        override fun launchDonation(activity: Activity) {
+            if (FORCE_ADS_OFF) return
+
+            val details = donationDetails ?: return
+
+            val productDetailsParamsList =
+                listOf(
+                    BillingFlowParams.ProductDetailsParams.newBuilder()
+                        .setProductDetails(details)
+                        .build(),
+                )
+
+            val billingFlowParams =
+                BillingFlowParams.newBuilder()
+                    .setProductDetailsParamsList(productDetailsParamsList)
+                    .build()
+
+            billingClient.launchBillingFlow(activity, billingFlowParams)
+        }
+
         override fun onPurchasesUpdated(
             billingResult: BillingResult,
             purchases: MutableList<Purchase>?,
         ) {
             if (billingResult.responseCode == BillingClient.BillingResponseCode.OK && purchases != null) {
                 acknowledgePurchases(purchases)
+                // 후원(일회성)은 소비 처리하여 반복 결제가 가능하도록 한다(권한 부여 없음).
+                consumeDonations(purchases)
                 // 결제 플로우 결과는 일부 집합이므로, 전체 활성 구독을 다시 조회해 상태를 권위 있게 재계산한다.
                 queryPurchases()
+            }
+        }
+
+        /** 후원 상품(소비성)의 PURCHASED 결제를 소비하여 재구매가 가능하게 한다. */
+        private fun consumeDonations(purchases: List<Purchase>) {
+            scope.launch {
+                purchases
+                    .filter {
+                        it.purchaseState == Purchase.PurchaseState.PURCHASED &&
+                            it.products.contains(DONATION_PRODUCT_ID)
+                    }
+                    .forEach { purchase ->
+                        val params =
+                            ConsumeParams.newBuilder()
+                                .setPurchaseToken(purchase.purchaseToken)
+                                .build()
+                        billingClient.consumeAsync(params) { _, _ -> }
+                    }
             }
         }
 

@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -32,13 +33,15 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -51,6 +54,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kr.yooreka.speedo.R
 import kr.yooreka.speedo.ui.components.BannerAd
+import kr.yooreka.speedo.ui.log.LogScreen
+import kr.yooreka.speedo.ui.log.LogViewModel
 import kr.yooreka.speedo.ui.theme.BackgroundBlack
 import kr.yooreka.speedo.ui.theme.DangerRed
 import kr.yooreka.speedo.ui.theme.NeonGreen
@@ -95,16 +100,20 @@ fun RecordsScreen(
     onRenameRecord: (Long, String) -> Unit = { _, _ -> },
     onDeleteRecord: (Long) -> Unit = {},
 ) {
-    var editingRecord by remember { mutableStateOf<RideRecord?>(null) }
-    var deletingRecord by remember { mutableStateOf<RideRecord?>(null) }
+    // 회전(Activity 재생성) 시에도 열려 있던 다이얼로그가 유지되도록 대상 id를 rememberSaveable로 보존한다(PRD §4.6).
+    var editingRecordId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var deletingRecordId by rememberSaveable { mutableStateOf<Long?>(null) }
+
+    val editingRecord = editingRecordId?.let { id -> records.find { it.id == id } }
+    val deletingRecord = deletingRecordId?.let { id -> records.find { it.id == id } }
 
     editingRecord?.let { record ->
         RenameRideDialog(
             currentTitle = record.title,
-            onDismiss = { editingRecord = null },
+            onDismiss = { editingRecordId = null },
             onConfirm = { newTitle ->
                 onRenameRecord(record.id, newTitle)
-                editingRecord = null
+                editingRecordId = null
             },
         )
     }
@@ -112,12 +121,23 @@ fun RecordsScreen(
     deletingRecord?.let { record ->
         DeleteRideDialog(
             title = record.title,
-            onDismiss = { deletingRecord = null },
+            onDismiss = { deletingRecordId = null },
             onConfirm = {
                 onDeleteRecord(record.id)
-                deletingRecord = null
+                deletingRecordId = null
             },
         )
+    }
+
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+
+    // 가로 마스터-디테일 선택 상태. 최신(첫) 주행을 기본 선택하고, 선택 주행이 목록에서 사라지면 재선정한다.
+    var selectedRideId by rememberSaveable { mutableStateOf<Long?>(null) }
+    LaunchedEffect(records) {
+        if (records.isNotEmpty() && records.none { it.id == selectedRideId }) {
+            selectedRideId = records.first().id
+        }
     }
 
     Column(
@@ -126,43 +146,141 @@ fun RecordsScreen(
                 .fillMaxSize()
                 .background(BackgroundBlack),
     ) {
-        Column(
-            modifier =
-                Modifier
-                    .weight(1f)
-                    .padding(horizontal = 24.dp),
-        ) {
-            RecordsHeader()
-
-            TotalDistanceCard(totalDistance)
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-                contentPadding = PaddingValues(bottom = 24.dp),
-            ) {
-                items(records) { record ->
-                    RideRecordCard(
-                        record = record,
-                        onClick = onRecordClick,
-                        onRenameClick = { editingRecord = record },
-                        onDeleteClick = { deletingRecord = record },
+        Box(modifier = Modifier.weight(1f)) {
+            if (isLandscape) {
+                // 가로모드(F-26): 좌측 주행 목록 + 우측 선택 주행 상세(지도+텔레메트리) 마스터-디테일 분할.
+                Row(modifier = Modifier.fillMaxSize()) {
+                    RecordsListContent(
+                        records = records,
+                        totalDistance = totalDistance,
+                        selectedRideId = selectedRideId,
+                        onRecordClick = { id -> selectedRideId = id },
+                        onEditRecord = { editingRecordId = it },
+                        onDeleteRecord = { deletingRecordId = it },
+                        modifier =
+                            Modifier
+                                .weight(0.4f)
+                                .fillMaxHeight()
+                                .padding(start = 24.dp, end = 12.dp),
                     )
+                    Box(
+                        modifier =
+                            Modifier
+                                .weight(0.6f)
+                                .fillMaxHeight(),
+                    ) {
+                        val detailRideId = selectedRideId
+                        if (detailRideId != null) {
+                            RecordsDetailPane(
+                                rideId = detailRideId,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        } else {
+                            RecordsEmptyDetail(modifier = Modifier.fillMaxSize())
+                        }
+                    }
                 }
+            } else {
+                RecordsListContent(
+                    records = records,
+                    totalDistance = totalDistance,
+                    selectedRideId = null,
+                    onRecordClick = onRecordClick,
+                    onEditRecord = { editingRecordId = it },
+                    onDeleteRecord = { deletingRecordId = it },
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 24.dp),
+                )
             }
         }
 
         if (!isAdRemoved) {
-            BannerAd(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .background(Color(0xFF0F172A))
-                        .border(0.6.dp, Color(0xFF1E293B))
-                        .padding(top = 12.dp, bottom = 12.dp),
-            )
+            // 광고가 실제 로드된 경우에만 영역이 노출된다(배경/테두리는 BannerAd 내부에서 처리).
+            BannerAd(modifier = Modifier.fillMaxWidth())
         }
+    }
+}
+
+/**
+ * 주행 목록 콘텐츠(헤더 + 총 주행거리 카드 + 기록 리스트). 세로 전체 화면과 가로 좌측 패널에서 공용으로 쓴다.
+ * [selectedRideId] 가 지정되면(가로 마스터-디테일) 해당 카드를 선택 상태로 강조한다.
+ */
+@Composable
+private fun RecordsListContent(
+    records: List<RideRecord>,
+    totalDistance: String,
+    selectedRideId: Long?,
+    onRecordClick: (Long) -> Unit,
+    onEditRecord: (Long) -> Unit,
+    onDeleteRecord: (Long) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    // 헤더와 총 주행거리 카드까지 목록과 함께 스크롤되도록 LazyColumn 첫 아이템으로 포함한다.
+    LazyColumn(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+        contentPadding = PaddingValues(bottom = 24.dp),
+    ) {
+        item(key = "header") {
+            Column {
+                RecordsHeader()
+                TotalDistanceCard(totalDistance)
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+        }
+
+        if (records.isEmpty()) {
+            item(key = "empty") {
+                RecordsEmptyDetail(modifier = Modifier.fillMaxWidth())
+            }
+        } else {
+            items(records, key = { it.id }) { record ->
+                RideRecordCard(
+                    record = record,
+                    isSelected = record.id == selectedRideId,
+                    onClick = onRecordClick,
+                    onRenameClick = { onEditRecord(record.id) },
+                    onDeleteClick = { onDeleteRecord(record.id) },
+                )
+            }
+        }
+    }
+}
+
+/**
+ * 가로 기록탭 우측 상세 패널. 선택된 [rideId] 의 주행 상세(지도 + 텔레메트리)를 LogScreen 재사용으로 렌더링한다.
+ * nav 백스택 진입이 아니므로 LogViewModel 을 직접 얻어 loadRide 로 선택 주행을 주입하고, 뒤로가기 버튼은 숨긴다.
+ */
+@Composable
+private fun RecordsDetailPane(
+    rideId: Long,
+    modifier: Modifier = Modifier,
+) {
+    val logViewModel: LogViewModel = hiltViewModel()
+    LaunchedEffect(rideId) { logViewModel.loadRide(rideId) }
+    LogScreen(
+        viewModel = logViewModel,
+        showBackButton = false,
+        modifier = modifier,
+    )
+}
+
+/** 표시할 주행이 없을 때(빈 목록/미선택) 중앙 안내 문구(PRD §4.2). */
+@Composable
+private fun RecordsEmptyDetail(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier,
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = stringResource(R.string.records_empty),
+            color = SlateSubText,
+            fontSize = 14.sp,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(24.dp),
+        )
     }
 }
 
@@ -234,8 +352,9 @@ fun RideRecordCard(
     onClick: (Long) -> Unit,
     onRenameClick: () -> Unit = {},
     onDeleteClick: () -> Unit = {},
+    isSelected: Boolean = false,
 ) {
-    var expanded by remember { mutableStateOf(false) }
+    var expanded by rememberSaveable { mutableStateOf(false) }
 
     Card(
         modifier =
@@ -244,7 +363,8 @@ fun RideRecordCard(
         onClick = { onClick(record.id) },
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = SlateDark),
-        border = androidx.compose.foundation.BorderStroke(1.875.dp, Color.Transparent),
+        // 가로 마스터-디테일에서 선택된 주행을 네온 테두리로 강조한다.
+        border = androidx.compose.foundation.BorderStroke(1.875.dp, if (isSelected) NeonGreen else Color.Transparent),
     ) {
         Column(modifier = Modifier.padding(22.dp)) {
             Row(
@@ -403,7 +523,7 @@ fun RenameRideDialog(
     onDismiss: () -> Unit,
     onConfirm: (String) -> Unit,
 ) {
-    var text by remember { mutableStateOf(currentTitle) }
+    var text by rememberSaveable { mutableStateOf(currentTitle) }
 
     Dialog(onDismissRequest = onDismiss) {
         Card(

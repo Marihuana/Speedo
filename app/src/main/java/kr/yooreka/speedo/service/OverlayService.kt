@@ -24,9 +24,16 @@ import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kr.yooreka.speedo.data.local.preferences.UserPreferencesRepository
 import kr.yooreka.speedo.domain.model.BrakeEvent
 import kr.yooreka.speedo.domain.model.OverlaySettings
@@ -69,6 +76,11 @@ class OverlayService :
     private var overlayView: ComposeView? = null
     private val layoutParams: WindowManager.LayoutParams by lazy { buildLayoutParams() }
 
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    // 저장된 위젯 위치(F-19b). onCreate 에서 1회 로드해 buildLayoutParams 초기값으로 사용한다.
+    private var restoredPosition: Pair<Int, Int>? = null
+
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
@@ -77,6 +89,9 @@ class OverlayService :
         savedStateRegistryController.performRestore(null)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
         windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
+        // 저장된 위치를 복원해 초기 위치로 사용한다(F-19b). 오버레이 표시 시 1회 동기 읽기.
+        // IO 실패 시 null(초기 위치)로 폴백해 서비스가 죽지 않게 한다.
+        restoredPosition = runCatching { runBlocking { userPreferencesRepository.overlayPositionFlow.first() } }.getOrNull()
         addOverlayView()
     }
 
@@ -99,8 +114,9 @@ class OverlayService :
             PixelFormat.TRANSLUCENT,
         ).apply {
             gravity = Gravity.TOP or Gravity.START
-            x = INITIAL_X
-            y = INITIAL_Y
+            val pos = restoredPosition
+            x = pos?.first ?: INITIAL_X
+            y = pos?.second ?: INITIAL_Y
         }
 
     private fun addOverlayView() {
@@ -150,6 +166,7 @@ class OverlayService :
                             opacity = settings.opacity,
                             onTap = ::bringAppToForeground,
                             onDrag = ::moveOverlay,
+                            onDragEnd = ::persistOverlayPosition,
                         )
                     }
                 }
@@ -172,6 +189,13 @@ class OverlayService :
         runCatching { windowManager.updateViewLayout(view, layoutParams) }
     }
 
+    /** 드래그 종료 시 현재 위젯 위치를 영속 저장한다(F-19b: 다음 표시 때 그 위치로 복원). */
+    private fun persistOverlayPosition() {
+        val x = layoutParams.x
+        val y = layoutParams.y
+        serviceScope.launch { userPreferencesRepository.updateOverlayPosition(x, y) }
+    }
+
     /** 위젯 탭 시 앱을 포그라운드로 복귀시키고 대시보드를 전면에 띄운다(F-19, AC-04). */
     private fun bringAppToForeground() {
         val intent =
@@ -191,6 +215,7 @@ class OverlayService :
         // (조기 stopSelf 로 CREATED 상태인 경우에도 잘못된 상향 전이가 발생하지 않도록)
         lifecycleRegistry.currentState = Lifecycle.State.DESTROYED
         removeOverlayView()
+        serviceScope.cancel()
         store.clear()
         super.onDestroy()
     }

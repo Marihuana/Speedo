@@ -27,4 +27,6 @@ data class DashBoardState(
     val autoStopSuggested: Boolean = false,
     val maxLeftRoll: String = "0°",
     val maxRightRoll: String = "0°",
+    val rideDuration: String = "00:00:00",
+    val rideDistance: String = "0.0",
 )

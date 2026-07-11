@@ -34,6 +34,7 @@
     <string name="records_title">RECORDS</string>
     <string name="records_subtitle">RIDING HISTORY</string>
     <string name="total_distance">TOTAL DISTANCE</string>
+    <string name="records_empty">No rides recorded. Start a new ride!</string>
     <string name="kilometers">Kilometers</string>
     <string name="duration">Duration</string>
     <string name="distance">Distance</string>
@@ -74,22 +75,38 @@
     <string name="calibrate_button">CALIBRATE ZERO POINT</string>
     <string name="calibrating">CALIBRATING…</string>
     <string name="calibration_reset">Calibration reset</string>
-    <string name="app_version">Every Bari Telemetry v1.2.0</string>
+    <string name="app_version">Every Bari Telemetry v1.0.0</string>
 
     <!-- Settings sections / cards -->
     <string name="section_account">Account &amp; Upgrades</string>
     <string name="speed_unit_label">Speed Unit</string>
     <string name="lean_calibration_label">Lean Angle Calibration</string>
     <string name="lean_calibration_desc">Reset sensor zero point</string>
-    <string name="premium_version">Premium Version</string>
-    <string name="premium_desc">Remove all ads with a subscription</string>
-    <string name="premium_plan_monthly">Monthly</string>
-    <string name="premium_plan_yearly">Yearly</string>
-    <string name="premium_plan_format">%1$s · %2$s</string>
-    <string name="premium_free_trial">Free trial included</string>
+    <string name="premium_version">PREMIUM VERSION</string>
+    <string name="premium_desc">REMOVE ALL ADS PERMANENTLY</string>
     <string name="premium_loading">Loading subscription plans…</string>
     <string name="premium_active_title">PREMIUM ACTIVE</string>
     <string name="premium_active_desc">AD-FREE EXPERIENCE UNLOCKED</string>
+    <!-- Subscription card: gold two-plan selector (F-27 redesign) -->
+    <string name="premium_plan_yearly_name">Yearly</string>
+    <string name="premium_plan_monthly_name">Monthly</string>
+    <string name="premium_yearly_saving">Save %1$d%%</string>
+    <string name="premium_yearly_note">≈ %1$s/mo</string>
+    <string name="premium_monthly_note">Cancel anytime</string>
+    <string name="premium_period_year">yr</string>
+    <string name="premium_period_month">mo</string>
+    <string name="premium_cta">Start 14-day free trial</string>
+    <string name="premium_trial_notice_yearly">Free for 14 days, then %1$s/yr auto-renews.</string>
+    <string name="premium_trial_notice_monthly">Free for 14 days, then %1$s/mo auto-renews.</string>
+    <string name="premium_have_coupon">Have a coupon code?</string>
+    <!-- Coupon redeem dialog (F-27) -->
+    <string name="coupon_dialog_title">Enter Coupon Code</string>
+    <string name="coupon_dialog_subtitle">Free ad-removal pass</string>
+    <string name="coupon_input_hint">Enter coupon code</string>
+    <string name="coupon_input_helper">Case-insensitive.\n(e.g. EVERYBARI3)</string>
+    <string name="coupon_submit">Redeem coupon</string>
+    <string name="cd_coupon_icon">Coupon</string>
+    <string name="cd_close">Close</string>
     <!-- Floating overlay widget (F-19) -->
     <string name="overlay_title">Floating Overlay</string>
     <string name="overlay_desc">Show speed, lean and braking on top of other apps while riding</string>
@@ -106,6 +123,11 @@
     <string name="overlay_permission_desc">To show the floating widget over other apps, please allow \"Display over other apps\" in system settings.</string>
     <string name="overlay_permission_confirm">Open settings</string>
     <string name="overlay_permission_cancel">Cancel</string>
+    <!-- Dashboard brake warning (F-05) -->
+    <string name="brake_warning_light">LIGHT BRAKE</string>
+    <string name="brake_warning_moderate">MODERATE BRAKE</string>
+    <string name="brake_warning_hard">HARD BRAKE</string>
+    <string name="cd_brake_warning">Hard braking warning</string>
     <!-- Overlay widget on-screen labels -->
     <string name="overlay_hard_brake">HARD BRAKE</string>
     <string name="overlay_widget_speed">SPEED</string>
@@ -116,8 +138,11 @@
     <string name="lean_measurement_desc">Compare strategies, then keep the most accurate</string>
     <string name="diagnostic_logs_desc">Diagnostic logs are saved automatically while recording a ride.</string>
     <string name="export_measurements">EXPORT MEASUREMENTS</string>
-    <string name="lean_mode_gravity_suffix"> (Default)</string>
-    <string name="lean_mode_complementary_suffix"> (Gyro Fusion)</string>
+    <string name="lean_mode_gravity">Gravity Sensor</string>
+    <string name="lean_mode_accelerometer">Accelerometer Sensor</string>
+    <string name="lean_mode_rotation_vector">Rotation Vector (Compass Fusion)</string>
+    <string name="lean_mode_game_rotation_vector">Gyro + Accel Fusion (Recommended)</string>
+    <string name="lean_mode_complementary">Complementary Filter (Precision)</string>
     <string name="auto_stop_detection_title">Auto-Stop Detection</string>
     <string name="auto_stop_detection_desc">Confirm ride end when low speed persists</string>
     <string name="auto_stop_detection_time">Detection Time (min)</string>
@@ -125,6 +150,22 @@
     <string name="diagnostic_email_subject">Speedo lean diagnostics</string>
     <string name="diagnostic_email_body">Attaching %1$d lean measurement diagnostic CSV file(s).</string>
     <string name="diagnostic_chooser_title">Export diagnostics</string>
+    <string name="diagnostic_issue_marked">Issue moment marked in the diagnostic log.</string>
+    <string name="cd_report_issue">Report an issue</string>
+
+    <!-- Developer donation (one-time in-app purchase) -->
+    <string name="donation_title">Buy the developer a motorcycle</string>
+    <string name="donation_desc">Enjoying Speedo? Support the developer with a small tip.</string>
+    <string name="donation_button">Support · %1$s</string>
+    <!-- Developer motorcycle easter egg double-confirm (F-24). Amount kept as a resource, not hardcoded. -->
+    <string name="donation_amount">₩600,000</string>
+    <string name="donation_button_easter_egg">Buy the developer a motorcycle (%1$s)</string>
+    <string name="donation_confirm_first_message">Are you really buying it? %1$s will be charged via Google Play in-app purchase (IAP).</string>
+    <string name="donation_confirm_first_confirm">OK</string>
+    <string name="donation_confirm_first_dismiss">Just kidding</string>
+    <string name="donation_confirm_second_message">Wait, no joke, are you truly, sincerely buying it? The amount will be used with care toward the developer\'s motorcycle.</string>
+    <string name="donation_confirm_second_confirm">Yes, charge me for real</string>
+    <string name="donation_confirm_second_dismiss">Cancel</string>
 
     <!-- Dialogs -->
     <string name="dialog_connect_title">Sensor Connection</string>
@@ -154,6 +195,7 @@
     <string name="summary_max_lean">MAX LEAN</string>
     <string name="segment_prev">◀ PREV</string>
     <string name="segment_next">NEXT ▶</string>
+    <string name="error_invalid_ride">This ride record does not exist or has been deleted.</string>
 
     <!-- Splash -->
     <string name="splash_title">EVERY BARI</string>
@@ -172,4 +214,12 @@
 
     <!-- Misc -->
     <string name="press_back_again_to_exit">Press back again to exit.</string>
+
+    <!-- Safety Guide -->
+    <string name="guide_safety_mount_title">Mount phone in the center as much as possible</string>
+    <string name="guide_safety_mount_message">Securing your smartphone in the exact center of the handlebar with a stem mount provides the most accurate lean angle measurement. Off-center mounting increases errors.</string>
+    <string name="guide_safety_next">Next</string>
+    <string name="guide_safety_title">Measurements for Reference Only</string>
+    <string name="guide_safety_message">Lean angle is calculated by combining the accelerometer and gyro sensors. Errors may occur depending on road conditions, vibrations, and mounting position, so do not blindly trust it as an absolute value.</string>
+    <string name="guide_safety_confirm">Get Started</string>
 </resources>

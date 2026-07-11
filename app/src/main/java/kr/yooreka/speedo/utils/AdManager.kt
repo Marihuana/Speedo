@@ -22,9 +22,13 @@ class AdManager
         private var interstitialAd: InterstitialAd? = null
         private var isAdLoading = false
 
-        // Default Interstitial Test Ad Unit ID
-        // If you have a specific interstitial ad unit ID, replace this here.
-        private val adUnitId = "ca-app-pub-6147358897182409/9540201834"
+        // 광고 단위 ID: debug=구글 공식 테스트 전면광고 ID(항상 채워짐, 클릭해도 정책 위반 아님), release=프로덕션 ID.
+        private val adUnitId =
+            if (BuildConfig.DEBUG) {
+                "ca-app-pub-3940256099942544/1033173712"
+            } else {
+                "ca-app-pub-6147358897182409/9540201834"
+            }
 
         fun loadInterstitialAd() {
             // 광고 비활성화(알파 등) 시 로드하지 않는다.

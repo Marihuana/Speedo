@@ -5,8 +5,10 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,10 +18,18 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -28,6 +38,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -35,11 +46,13 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kr.yooreka.speedo.R
+import kr.yooreka.speedo.domain.model.BrakeEvent
 import kr.yooreka.speedo.ui.components.GaugeSide
 import kr.yooreka.speedo.ui.components.LeanGauge
 import kr.yooreka.speedo.ui.theme.NeonGreen
 import kr.yooreka.speedo.ui.theme.SlateSubText
 import kr.yooreka.speedo.utils.parseLeanAngle
+import java.util.Locale
 import kotlin.math.abs
 
 // ── 색상 ──────────────────────────────────────────────────────────────────────
@@ -61,6 +74,8 @@ fun SpeedometerCard(
     isRecording: Boolean = false,
     maxLeftRoll: String = "0°",
     maxRightRoll: String = "0°",
+    brakeEvent: BrakeEvent = BrakeEvent.NONE,
+    onMarkIssue: (() -> Unit)? = null,
 ) {
     val speedInt = speedKmh.toIntOrNull() ?: 0
     val leanFloat = parseLeanAngle(leanAngle)
@@ -82,7 +97,6 @@ fun SpeedometerCard(
         modifier =
             modifier
                 .fillMaxWidth()
-                .height(359.dp)
                 .shadow(
                     elevation = 20.dp,
                     shape = RoundedCornerShape(24.dp),
@@ -116,45 +130,10 @@ fun SpeedometerCard(
         val maxValueFontSize = if (isCompact) 20.sp else 30.sp
         val maxValueLetterSpacing = if (isCompact) 0.27.sp else 0.4.sp
 
-        val bottomPadding = if (isCompact) 16.dp else 32.dp
         val edgePadding = if (isCompact) 16.dp else 24.dp
-        val contentBottomPadding = if (isCompact) 16.dp else 24.dp
 
         val gaugeStrokeWidth = if (isCompact) 12.dp else 16.dp
         val gaugeEdgeInset = if (isCompact) 12.dp else 16.dp
-
-        Spacer(Modifier.size(24.dp))
-        Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp),
-        ) {
-            LeanGauge(
-                minValue = MIN_LEAN_ANGLE,
-                maxValue = MAX_LEAN_ANGLE,
-                valueProvider = { animatedLean },
-                side = GaugeSide.LEFT,
-                modifier =
-                    Modifier
-                        .fillMaxSize()
-                        .weight(1f),
-                strokeWidth = gaugeStrokeWidth,
-                edgeInset = gaugeEdgeInset,
-            )
-            LeanGauge(
-                minValue = MIN_LEAN_ANGLE,
-                maxValue = MAX_LEAN_ANGLE,
-                valueProvider = { -animatedLean },
-                side = GaugeSide.RIGHT,
-                modifier =
-                    Modifier
-                        .fillMaxSize()
-                        .weight(1f),
-                strokeWidth = gaugeStrokeWidth,
-                edgeInset = gaugeEdgeInset,
-            )
-        }
 
         val density = LocalDensity.current
         val speedShadow =
@@ -166,129 +145,178 @@ fun SpeedometerCard(
                 )
             }
 
-        // 속도 + UNIT
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-            modifier = Modifier.fillMaxWidth().padding(bottom = contentBottomPadding),
-        ) {
-            Text(
-                text = speedInt.toString(),
-                color = SpeedTextColor,
-                fontSize = speedFontSize,
-                fontWeight = FontWeight.Black,
-                letterSpacing = speedLetterSpacing,
-                textAlign = TextAlign.Center,
-                style = androidx.compose.ui.text.TextStyle(shadow = speedShadow),
-            )
-            Text(
-                text = speedUnit,
-                color = Color(0xFF90A1B9),
-                fontSize = unitFontSize,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = if (isCompact) 1.05.sp else 1.36.sp,
-                textAlign = TextAlign.Center,
-            )
-        }
-
-        // 린앵글 (하단 중앙)
         val direction =
             when {
                 animatedLean < 0f -> "R"
                 animatedLean > 0f -> "L"
                 else -> ""
             }
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier =
-                Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = bottomPadding),
-        ) {
-            Text(
-                text = stringResource(R.string.lean_angle),
-                color = SlateSubText,
-                fontSize = leanLabelFontSize,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = leanLabelLetterSpacing,
-            )
-            Spacer(modifier = Modifier.height(if (isCompact) 0.dp else 2.dp))
-            Row(
-                verticalAlignment = Alignment.Bottom,
-                horizontalArrangement = Arrangement.Center,
+
+        // 가로/세로 공용 어댑티브 레이아웃(하드코딩 높이 없음).
+        // Zone A(아크+속도)가 남은 높이를 모두 차지하고, Zone B(LEAN ANGLE·MAX L/R)는 콘텐츠 높이에
+        // 맞춰 하단에 배치되어 어떤 W×H 에서도 겹치지 않는다.
+        Column(modifier = Modifier.fillMaxSize().padding(edgePadding)) {
+            // Zone A: 아크("( )") 위에 속도/단위를 겹쳐 표시.
+            Box(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                contentAlignment = Alignment.Center,
             ) {
-                if (direction.isNotEmpty()) {
-                    Text(
-                        text = direction,
-                        color = Color.White,
-                        fontSize = directionFontSize,
-                        fontWeight = FontWeight.Black,
-                        letterSpacing = directionLetterSpacing,
-                        modifier = Modifier.alignByBaseline(),
+                Row(modifier = Modifier.fillMaxSize()) {
+                    LeanGauge(
+                        minValue = MIN_LEAN_ANGLE,
+                        maxValue = MAX_LEAN_ANGLE,
+                        valueProvider = { animatedLean },
+                        side = GaugeSide.LEFT,
+                        modifier =
+                            Modifier
+                                .fillMaxSize()
+                                .weight(1f),
+                        strokeWidth = gaugeStrokeWidth,
+                        edgeInset = gaugeEdgeInset,
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
+                    LeanGauge(
+                        minValue = MIN_LEAN_ANGLE,
+                        maxValue = MAX_LEAN_ANGLE,
+                        valueProvider = { -animatedLean },
+                        side = GaugeSide.RIGHT,
+                        modifier =
+                            Modifier
+                                .fillMaxSize()
+                                .weight(1f),
+                        strokeWidth = gaugeStrokeWidth,
+                        edgeInset = gaugeEdgeInset,
+                    )
                 }
-                Text(
-                    text = "${abs(animatedLean).toInt()}°",
-                    color = Color.White,
-                    fontSize = angleValueFontSize,
-                    fontWeight = FontWeight.Black,
-                    letterSpacing = angleValueLetterSpacing,
-                    modifier = Modifier.alignByBaseline(),
-                )
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                ) {
+                    AutoSizeText(
+                        text = speedInt.toString(),
+                        color = SpeedTextColor,
+                        minFontSize = 48f,
+                        maxFontSize = if (isCompact) 72f else 120f,
+                        fontWeight = FontWeight.Black,
+                        textAlign = TextAlign.Center,
+                        style = androidx.compose.ui.text.TextStyle(shadow = speedShadow),
+                    )
+                    Text(
+                        text = speedUnit,
+                        color = Color(0xFF90A1B9),
+                        fontSize = unitFontSize,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = if (isCompact) 1.05.sp else 1.36.sp,
+                        textAlign = TextAlign.Center,
+                    )
+                }
+                // 테스터 진단용 이슈 제보(1.0 보완): 속도 위(상단 중앙).
+                if (isRecording && onMarkIssue != null) {
+                    SmallFloatingActionButton(
+                        onClick = onMarkIssue,
+                        containerColor = Color(0xFFFB2C36),
+                        contentColor = Color.White,
+                        modifier = Modifier.align(Alignment.TopCenter),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Warning,
+                            contentDescription = stringResource(R.string.cd_report_issue),
+                        )
+                    }
+                }
+            }
+
+            // Zone B: LEAN ANGLE(중앙) + MAX L/R(양쪽 하단). 콘텐츠 높이에 맞춘다.
+            Box(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.align(Alignment.BottomCenter),
+                ) {
+                    Text(
+                        text = stringResource(R.string.lean_angle),
+                        color = SlateSubText,
+                        fontSize = leanLabelFontSize,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = leanLabelLetterSpacing,
+                    )
+                    Spacer(modifier = Modifier.height(if (isCompact) 0.dp else 2.dp))
+                    Row(
+                        verticalAlignment = Alignment.Bottom,
+                        horizontalArrangement = Arrangement.Center,
+                    ) {
+                        if (direction.isNotEmpty()) {
+                            Text(
+                                text = direction,
+                                color = NeonGreen,
+                                fontSize = directionFontSize,
+                                fontWeight = FontWeight.Black,
+                                letterSpacing = directionLetterSpacing,
+                                modifier = Modifier.alignByBaseline(),
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                        }
+                        Text(
+                            text = "${abs(animatedLean).toInt()}°",
+                            color = Color.White,
+                            fontSize = angleValueFontSize,
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = angleValueLetterSpacing,
+                            modifier = Modifier.alignByBaseline(),
+                        )
+                    }
+                }
+
+                if (isRecording) {
+                    Column(
+                        modifier = Modifier.align(Alignment.BottomStart),
+                        horizontalAlignment = Alignment.Start,
+                    ) {
+                        Text(
+                            text = "MAX L",
+                            color = SlateSubText,
+                            fontSize = maxLabelFontSize,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = maxLabelLetterSpacing,
+                        )
+                        Text(
+                            text = maxLeftRoll,
+                            color = Color.White,
+                            fontSize = maxValueFontSize,
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = maxValueLetterSpacing,
+                        )
+                    }
+                    Column(
+                        modifier = Modifier.align(Alignment.BottomEnd),
+                        horizontalAlignment = Alignment.End,
+                    ) {
+                        Text(
+                            text = "MAX R",
+                            color = SlateSubText,
+                            fontSize = maxLabelFontSize,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = maxLabelLetterSpacing,
+                        )
+                        Text(
+                            text = maxRightRoll,
+                            color = Color.White,
+                            fontSize = maxValueFontSize,
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = maxValueLetterSpacing,
+                        )
+                    }
+                }
             }
         }
 
-        // 최대 린앵글 (양쪽 하단 코너)
-        if (isRecording) {
-            // 좌측 하단: MAX L
-            Column(
-                modifier =
-                    Modifier
-                        .align(Alignment.BottomStart)
-                        .padding(start = edgePadding, bottom = bottomPadding),
-                horizontalAlignment = Alignment.Start,
-            ) {
-                Text(
-                    text = "MAX L",
-                    color = SlateSubText,
-                    fontSize = maxLabelFontSize,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = maxLabelLetterSpacing,
-                )
-                Text(
-                    text = maxLeftRoll,
-                    color = Color.White,
-                    fontSize = maxValueFontSize,
-                    fontWeight = FontWeight.Black,
-                    letterSpacing = maxValueLetterSpacing,
-                )
-            }
-
-            // 우측 하단: MAX R
-            Column(
-                modifier =
-                    Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(end = edgePadding, bottom = bottomPadding),
-                horizontalAlignment = Alignment.End,
-            ) {
-                Text(
-                    text = "MAX R",
-                    color = SlateSubText,
-                    fontSize = maxLabelFontSize,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = maxLabelLetterSpacing,
-                )
-                Text(
-                    text = maxRightRoll,
-                    color = Color.White,
-                    fontSize = maxValueFontSize,
-                    fontWeight = FontWeight.Black,
-                    letterSpacing = maxValueLetterSpacing,
-                )
-            }
-        }
+        // F-05: 급제동 3단계 시각 경고(카드 위 오버레이). NONE 이면 미노출.
+        BrakeWarningOverlay(
+            brakeEvent = brakeEvent,
+            cornerRadius = 24.dp,
+            modifier = Modifier.fillMaxSize(),
+        )
     }
 }
 
@@ -308,4 +336,362 @@ private fun PreviewRecording() {
         maxLeftRoll = "24°",
         maxRightRoll = "28°",
     )
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFF000000, name = "Speedometer - Hard Brake")
+@Composable
+private fun PreviewHardBrake() {
+    SpeedometerCard(
+        speedKmh = "42",
+        leanAngle = "6°",
+        brakeEvent = BrakeEvent.HARD,
+    )
+}
+
+// ── 가로모드 전용 컴포저블 및 Autosize Text ───────────────────────────────────────────
+
+@Composable
+fun AutoSizeText(
+    text: String,
+    modifier: Modifier = Modifier,
+    color: Color = Color.Unspecified,
+    fontWeight: FontWeight? = null,
+    textAlign: TextAlign? = null,
+    minFontSize: Float = 48f,
+    maxFontSize: Float = 120f,
+    style: androidx.compose.ui.text.TextStyle = androidx.compose.ui.text.TextStyle.Default,
+) {
+    var fontSizeValue by remember(text) { mutableStateOf(maxFontSize) }
+    var readyToDraw by remember(text) { mutableStateOf(false) }
+
+    Text(
+        text = text,
+        modifier = modifier,
+        color = if (readyToDraw) color else Color.Transparent,
+        fontSize = fontSizeValue.sp,
+        fontWeight = fontWeight,
+        textAlign = textAlign,
+        style = style,
+        maxLines = 1,
+        softWrap = false,
+        onTextLayout = { textLayoutResult ->
+            if (textLayoutResult.hasVisualOverflow) {
+                if (fontSizeValue > minFontSize) {
+                    fontSizeValue = (fontSizeValue - 4f).coerceAtLeast(minFontSize)
+                } else {
+                    readyToDraw = true
+                }
+            } else {
+                readyToDraw = true
+            }
+        },
+    )
+}
+
+@Composable
+fun SpeedometerOnlyCard(
+    speedKmh: String,
+    speedUnit: String,
+    isRecording: Boolean,
+    modifier: Modifier = Modifier,
+    brakeEvent: BrakeEvent = BrakeEvent.NONE,
+    onMarkIssue: (() -> Unit)?,
+) {
+    val speedInt = speedKmh.toIntOrNull() ?: 0
+
+    // 콘텐츠 패딩과 무관하게 F-05 경고 테두리를 카드 모서리에 맞추기 위해 바깥 Box 로 감싼다.
+    Box(modifier = modifier) {
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .shadow(
+                        elevation = 20.dp,
+                        shape = RoundedCornerShape(24.dp),
+                        ambientColor = Color(0x1A000000),
+                        spotColor = Color(0x1A000000),
+                    )
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(Color(0xFF1E293B))
+                    .padding(24.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+                modifier = Modifier.fillMaxSize(),
+            ) {
+                AutoSizeText(
+                    text = speedInt.toString(),
+                    color = SpeedTextColor,
+                    minFontSize = 48f,
+                    maxFontSize = 120f,
+                    fontWeight = FontWeight.Black,
+                    textAlign = TextAlign.Center,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = speedUnit,
+                    color = Color(0xFF90A1B9),
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.36.sp,
+                    textAlign = TextAlign.Center,
+                )
+            }
+
+            if (isRecording && onMarkIssue != null) {
+                SmallFloatingActionButton(
+                    onClick = onMarkIssue,
+                    containerColor = Color(0xFFFB2C36),
+                    contentColor = Color.White,
+                    modifier =
+                        Modifier
+                            .align(Alignment.TopCenter),
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Warning,
+                        contentDescription = stringResource(R.string.cd_report_issue),
+                    )
+                }
+            }
+        }
+
+        // F-05: 급제동 3단계 시각 경고(카드 위 오버레이). NONE 이면 미노출.
+        BrakeWarningOverlay(
+            brakeEvent = brakeEvent,
+            cornerRadius = 24.dp,
+            modifier = Modifier.fillMaxSize(),
+        )
+    }
+}
+
+@Composable
+fun LeanAngleLandscapeCard(
+    leanAngle: String,
+    maxLeftRoll: String,
+    maxRightRoll: String,
+    isRecording: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val leanFloat = parseLeanAngle(leanAngle)
+    val clampedLean = leanFloat.coerceIn(-MAX_LEAN_ANGLE, MAX_LEAN_ANGLE)
+
+    val animatedLean by animateFloatAsState(
+        targetValue = clampedLean,
+        animationSpec =
+            spring(
+                dampingRatio = Spring.DampingRatioNoBouncy,
+                stiffness = Spring.StiffnessMedium,
+            ),
+        label = "leanAngle",
+    )
+
+    val direction =
+        when {
+            animatedLean < 0f -> "R"
+            animatedLean > 0f -> "L"
+            else -> ""
+        }
+
+    Box(
+        modifier =
+            modifier
+                .shadow(
+                    elevation = 20.dp,
+                    shape = RoundedCornerShape(24.dp),
+                    ambientColor = Color(0x1A000000),
+                    spotColor = Color(0x1A000000),
+                )
+                .clip(RoundedCornerShape(24.dp))
+                .background(Color(0xFF1E2530))
+                .padding(horizontal = 24.dp, vertical = 12.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            // 1. Max L 영역 (Figma 80:333 스펙)
+            Column(
+                horizontalAlignment = Alignment.Start,
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Text(
+                    text = "Max L",
+                    color = SlateSubText,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.9.sp,
+                )
+                Text(
+                    text = "$maxLeftRoll°",
+                    color = Color(0xFFCAD5E2),
+                    fontSize = 30.sp,
+                    fontWeight = FontWeight.Black,
+                )
+            }
+
+            // 2. Central Lean Angle 영역 (Figma 80:333 스펙)
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Text(
+                    text = stringResource(R.string.lean_angle),
+                    color = SlateSubText,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.25.sp,
+                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
+                ) {
+                    if (direction.isNotEmpty()) {
+                        Text(
+                            text = direction,
+                            color = NeonGreen,
+                            fontSize = 36.sp,
+                            fontWeight = FontWeight.Black,
+                            modifier = Modifier.alignByBaseline(),
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                    }
+                    Text(
+                        text = "${abs(animatedLean).toInt()}°",
+                        color = Color.White,
+                        fontSize = 52.sp,
+                        fontWeight = FontWeight.Black,
+                        modifier = Modifier.alignByBaseline(),
+                    )
+                }
+            }
+
+            // 3. Max R 영역 (Figma 80:333 스펙)
+            Column(
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Text(
+                    text = "Max R",
+                    color = SlateSubText,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.9.sp,
+                )
+                Text(
+                    text = "$maxRightRoll°",
+                    color = Color(0xFFCAD5E2),
+                    fontSize = 30.sp,
+                    fontWeight = FontWeight.Black,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun RideStatsLandscapeCard(
+    duration: String,
+    distance: String,
+    speedUnit: String,
+    isRecording: Boolean,
+    isRecordingActive: Boolean,
+    modifier: Modifier = Modifier,
+    onRecordToggle: () -> Unit,
+) {
+    Box(
+        modifier =
+            modifier
+                .shadow(
+                    elevation = 20.dp,
+                    shape = RoundedCornerShape(24.dp),
+                    ambientColor = Color(0x1A000000),
+                    spotColor = Color(0x1A000000),
+                )
+                .clip(RoundedCornerShape(24.dp))
+                .background(Color(0xFF1E293B))
+                .padding(16.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.SpaceBetween,
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = stringResource(R.string.duration).uppercase(Locale.US),
+                        color = SlateSubText,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = duration,
+                        color = Color.White,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Black,
+                    )
+                }
+
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = stringResource(R.string.distance).uppercase(Locale.US),
+                        color = SlateSubText,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "$distance ${if (speedUnit == "MPH") "mi" else "km"}",
+                        color = Color.White,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Black,
+                    )
+                }
+            }
+
+            Button(
+                onClick = onRecordToggle,
+                colors =
+                    ButtonDefaults.buttonColors(
+                        containerColor = if (isRecordingActive) Color(0xFFFB2C36) else NeonGreen,
+                        contentColor = if (isRecordingActive) Color.White else Color.Black,
+                    ),
+                shape = RoundedCornerShape(12.dp),
+                contentPadding = PaddingValues(horizontal = 24.dp, vertical = 8.dp),
+                modifier = Modifier.fillMaxWidth(0.9f),
+            ) {
+                Icon(
+                    painter =
+                        painterResource(
+                            id = if (isRecordingActive) R.drawable.ic_stop else R.drawable.ic_play,
+                        ),
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text =
+                        if (isRecordingActive) {
+                            stringResource(
+                                R.string.record_button_stop,
+                            )
+                        } else {
+                            stringResource(R.string.record_button_start)
+                        },
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Black,
+                )
+            }
+        }
+    }
 }

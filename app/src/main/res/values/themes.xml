@@ -2,4 +2,16 @@
 <resources>
 
     <style name="Theme.Speedo" parent="android:Theme.Material.Light.NoActionBar" />
+
+    <!--
+        콜드스타트 시스템 스플래시 테마(F-25, §4.6). AndroidX core-splashscreen 의
+        Theme.SplashScreen 을 상속하며, is_first_launch 플래그 리딩이 끝날 때까지
+        시스템 스플래시를 유지(MainActivity.setKeepOnScreenCondition)해 Visual Leak/Jank 를 막는다.
+        리딩 완료 후에는 postSplashScreenTheme(@style/Theme.Speedo) 로 전환된다.
+    -->
+    <style name="Theme.Speedo.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/black</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher</item>
+        <item name="postSplashScreenTheme">@style/Theme.Speedo</item>
+    </style>
 </resources>

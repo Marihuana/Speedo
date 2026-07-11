@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kr.yooreka.speedo.data.local.preferences.UserPreferencesRepository
 import kr.yooreka.speedo.data.sensor.lean.LeanDiagnosticLogger
+import kr.yooreka.speedo.domain.model.DonationProduct
 import kr.yooreka.speedo.domain.model.LeanMode
 import kr.yooreka.speedo.domain.model.OverlayMode
 import kr.yooreka.speedo.domain.model.OverlaySettings
@@ -31,6 +32,8 @@ data class SettingsState(
     val autoStopThresholdMin: Int = 5,
     // 광고 제거 구독 플랜(월간/연간, 무료체험 포함).
     val subscriptionPlans: List<SubscriptionPlan> = emptyList(),
+    // 개발자 후원(일회성 인앱) 상품. 미등록/조회 전이면 null(버튼 비노출).
+    val donationProduct: DonationProduct? = null,
     // 플로팅 오버레이 위젯 설정(F-19a/b).
     val overlaySettings: OverlaySettings = OverlaySettings(),
 )
@@ -46,14 +49,22 @@ class SettingsViewModel
     ) : ViewModel() {
         private val isCalibratingFlow = MutableStateFlow(false)
 
+        // combine 인자 상한(5개)을 넘기지 않도록 결제 관련 3종 flow 를 하나로 묶는다.
+        private val billingStateFlow =
+            combine(
+                billingRepository.isAdRemoved,
+                billingRepository.subscriptionPlans,
+                billingRepository.donationProduct,
+            ) { isAdRemoved, plans, donation -> Triple(isAdRemoved, plans, donation) }
+
         val uiState: StateFlow<SettingsState> =
             combine(
                 userPreferencesRepository.userPreferencesFlow,
                 isCalibratingFlow,
-                billingRepository.isAdRemoved,
-                billingRepository.subscriptionPlans,
+                billingStateFlow,
                 userPreferencesRepository.overlaySettingsFlow,
-            ) { prefs, calibrating, isAdRemoved, plans, overlay ->
+            ) { prefs, calibrating, billing, overlay ->
+                val (isAdRemoved, plans, donation) = billing
                 SettingsState(
                     speedUnit = prefs.speedUnit,
                     isCalibrating = calibrating,
@@ -61,6 +72,7 @@ class SettingsViewModel
                     leanMeasurementMode = LeanMode.fromName(prefs.leanMeasurementMode),
                     autoStopThresholdMin = prefs.autoStopThresholdMin,
                     subscriptionPlans = plans,
+                    donationProduct = donation,
                     overlaySettings = overlay,
                 )
             }.stateIn(
@@ -75,6 +87,11 @@ class SettingsViewModel
             plan: SubscriptionPlan,
         ) {
             billingRepository.launchBillingFlow(activity, plan)
+        }
+
+        /** 개발자 후원(오토바이 사주기, 일회성) 결제 플로우를 시작한다. */
+        fun donate(activity: Activity) {
+            billingRepository.launchDonation(activity)
         }
 
         fun updateSpeedUnit(unit: String) {

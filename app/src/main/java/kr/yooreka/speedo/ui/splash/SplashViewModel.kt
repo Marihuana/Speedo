@@ -27,16 +27,19 @@ class SplashViewModel
         fun onSplashFinished(
             activity: Activity,
             adManager: AdManager,
-            onComplete: () -> Unit,
+            onComplete: (isFirstLaunch: Boolean) -> Unit,
         ) {
             viewModelScope.launch {
                 val prefs = userPreferencesRepository.userPreferencesFlow.first()
                 val isAdRemoved = billingRepository.isAdRemoved.first()
+                val isFirstLaunch = prefs.isFirstLaunch
 
                 if (prefs.launchCount % 3 == 0 && !isAdRemoved) {
-                    adManager.showInterstitial(activity, onComplete)
+                    adManager.showInterstitial(activity) {
+                        onComplete(isFirstLaunch)
+                    }
                 } else {
-                    onComplete()
+                    onComplete(isFirstLaunch)
                 }
             }
         }

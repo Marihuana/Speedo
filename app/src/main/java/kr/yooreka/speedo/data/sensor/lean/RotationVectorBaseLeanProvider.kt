@@ -1,6 +1,10 @@
 package kr.yooreka.speedo.data.sensor.lean
 
+import android.content.Context
 import android.hardware.SensorManager
+import android.hardware.display.DisplayManager
+import android.view.Display
+import android.view.Surface
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -19,8 +23,22 @@ import kr.yooreka.speedo.domain.repository.LeanProvider
  * 구체 센서(일반/게임 회전벡터)는 하위 클래스가 주입한다.
  */
 abstract class RotationVectorBaseLeanProvider(
+    private val context: Context,
     private val sensor: SensorDataSource<RotationVectorData>,
 ) : LeanProvider {
+    // 앱(Application) 컨텍스트에서도 안전하게 화면 방향을 얻기 위해 DisplayManager 를 사용한다.
+    // Context.getDisplay() 는 디스플레이 미연결(Application) 컨텍스트에서 UnsupportedOperationException 을 던지므로 쓰지 않는다.
+    private val displayManager by lazy {
+        context.getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
+    }
+
+    private fun currentRotation(): Int =
+        try {
+            displayManager.getDisplay(Display.DEFAULT_DISPLAY)?.rotation ?: Surface.ROTATION_0
+        } catch (e: Exception) {
+            Surface.ROTATION_0
+        }
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var job: Job? = null
     private val rotationMatrix = FloatArray(9)
@@ -57,7 +75,41 @@ abstract class RotationVectorBaseLeanProvider(
                             vector3
                         }
                     SensorManager.getRotationMatrixFromVector(rotationMatrix, vector)
-                    _leanStream.value = LeanMath.rollFromUpVector(rotationMatrix[6], rotationMatrix[7], rotationMatrix[8])
+
+                    val rotation = currentRotation()
+
+                    val remappedMatrix = FloatArray(9)
+                    when (rotation) {
+                        Surface.ROTATION_90 -> {
+                            SensorManager.remapCoordinateSystem(
+                                rotationMatrix,
+                                SensorManager.AXIS_Y,
+                                SensorManager.AXIS_MINUS_X,
+                                remappedMatrix,
+                            )
+                        }
+                        Surface.ROTATION_180 -> {
+                            SensorManager.remapCoordinateSystem(
+                                rotationMatrix,
+                                SensorManager.AXIS_MINUS_X,
+                                SensorManager.AXIS_MINUS_Y,
+                                remappedMatrix,
+                            )
+                        }
+                        Surface.ROTATION_270 -> {
+                            SensorManager.remapCoordinateSystem(
+                                rotationMatrix,
+                                SensorManager.AXIS_MINUS_Y,
+                                SensorManager.AXIS_X,
+                                remappedMatrix,
+                            )
+                        }
+                        else -> {
+                            System.arraycopy(rotationMatrix, 0, remappedMatrix, 0, 9)
+                        }
+                    }
+
+                    _leanStream.value = LeanMath.rollFromUpVector(remappedMatrix[6], remappedMatrix[7], remappedMatrix[8])
                 }
             }
     }

@@ -5,6 +5,7 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import kr.yooreka.speedo.data.billing.BillingRepositoryImpl
+import kr.yooreka.speedo.data.crash.FirebaseCrashReporter
 import kr.yooreka.speedo.data.repository.RideRepositoryImpl
 import kr.yooreka.speedo.data.sensor.datasource.YawRateProvider
 import kr.yooreka.speedo.data.sensor.repository.AccelerometerRepositoryImpl
@@ -18,6 +19,7 @@ import kr.yooreka.speedo.domain.model.GravityData
 import kr.yooreka.speedo.domain.model.LocationData
 import kr.yooreka.speedo.domain.model.TpmsData
 import kr.yooreka.speedo.domain.repository.BillingRepository
+import kr.yooreka.speedo.domain.repository.CrashReporter
 import kr.yooreka.speedo.domain.repository.LeanCalibrationRepository
 import kr.yooreka.speedo.domain.repository.RideRepository
 import kr.yooreka.speedo.domain.repository.SensorRepository
@@ -65,6 +67,11 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindBillingRepository(impl: BillingRepositoryImpl): BillingRepository
+
+    // 비치명적 예외 리포터(PRD §7.1). Firebase 미초기화 시 no-op 하는 구현으로 바인딩.
+    @Binds
+    @Singleton
+    abstract fun bindCrashReporter(impl: FirebaseCrashReporter): CrashReporter
 
     // 경로 위치 보간 전략(F-13c). 기본 선형, 추후 Catmull-Rom 등으로 교체 가능(Strategy).
     @Binds

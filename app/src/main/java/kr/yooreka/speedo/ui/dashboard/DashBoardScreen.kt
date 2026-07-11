@@ -1,5 +1,6 @@
 package kr.yooreka.speedo.ui.dashboard
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -14,6 +15,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -27,6 +31,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -51,14 +57,19 @@ import kr.yooreka.speedo.ui.theme.SpeedoTheme
 fun DashBoardScreen(
     state: DashBoardState,
     uiEvent: SharedFlow<DashBoardUiEvent>,
+    modifier: Modifier = Modifier,
     onRecordToggle: () -> Unit = {},
     onConfirmRecording: () -> Unit = {},
     onShowInterstitial: () -> Unit = {},
     onAutoStopContinue: () -> Unit = {},
     onAutoStopConfirm: () -> Unit = {},
+    onMarkIssue: () -> Unit = {},
 ) {
     var showStartDialog by remember { mutableStateOf(false) }
     val lifecycleOwner = LocalLifecycleOwner.current
+    val context = LocalContext.current
+    // 콜백(비 Composable 람다)에서 리소스 직접 조회를 피하기 위해 미리 읽어 둔다.
+    val issueMarkedMessage = stringResource(R.string.diagnostic_issue_marked)
 
     LaunchedEffect(lifecycleOwner) {
         lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -71,44 +82,112 @@ fun DashBoardScreen(
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        Column(
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .background(BackgroundBlack)
-                    .padding(20.dp),
-        ) {
-            DashBoardHeader(
-                isRecording = state.isRecording,
-                onRecordToggle = onRecordToggle,
-            )
-            SpeedometerCard(
-                speedKmh = state.speed,
-                leanAngle = state.roll,
-                speedUnit = state.speedUnit,
-                isRecording = state.isRecording,
-                maxLeftRoll = state.maxLeftRoll,
-                maxRightRoll = state.maxRightRoll,
+    Box(modifier = modifier.fillMaxSize()) {
+        val configuration = LocalConfiguration.current
+        val isLandscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+
+        if (isLandscape) {
+            Box(
                 modifier =
                     Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-            )
-            if (state.showTpmsData) {
-                Spacer(modifier = Modifier.height(16.dp))
-                TPMSCard(
-                    rearPressure = state.rearPressure,
-                    frontPressure = state.frontPressure,
-                    rearTemp = state.rearTemp,
-                    frontTemp = state.frontTemp,
-                    rearBat = state.rearBat,
-                    frontBat = state.frontBat,
-                    pressureUnit = state.pressureUnit,
-                    rearColor = state.rearPressureColor,
-                    frontColor = state.frontPressureColor,
-                    modifier = Modifier.fillMaxWidth(),
+                        .fillMaxSize()
+                        .background(BackgroundBlack)
+                        .padding(16.dp),
+            ) {
+                // 가로모드(시안 Image #3): 세로용 스피드미터 카드를 단일 카드로 채운다.
+                // 아크("( )") + 속도 + LEAN ANGLE + MAX L/R 를 그대로 렌더한다.
+                SpeedometerCard(
+                    speedKmh = state.speed,
+                    leanAngle = state.roll,
+                    speedUnit = state.speedUnit,
+                    isRecording = state.isRecording,
+                    maxLeftRoll = state.maxLeftRoll,
+                    maxRightRoll = state.maxRightRoll,
+                    brakeEvent = state.brakeEvent,
+                    onMarkIssue = {
+                        onMarkIssue()
+                        Toast.makeText(context, issueMarkedMessage, Toast.LENGTH_SHORT).show()
+                    },
+                    modifier = Modifier.fillMaxSize(),
                 )
+
+                // 우상단 기록/정지 버튼(시안: "▶ 기록" 그린 필)
+                Button(
+                    onClick = onRecordToggle,
+                    colors =
+                        ButtonDefaults.buttonColors(
+                            containerColor = NeonGreen,
+                            contentColor = BackgroundBlack,
+                        ),
+                    shape = RoundedCornerShape(16.dp),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
+                    modifier =
+                        Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(top = 20.dp, end = 20.dp),
+                ) {
+                    Icon(
+                        imageVector = if (state.isRecording) Icons.Filled.Stop else Icons.Filled.PlayArrow,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text =
+                            if (state.isRecording) {
+                                stringResource(R.string.record_button_stop)
+                            } else {
+                                stringResource(R.string.record_button_start)
+                            },
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Black,
+                    )
+                }
+            }
+        } else {
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .background(BackgroundBlack)
+                        .padding(20.dp),
+            ) {
+                DashBoardHeader(
+                    isRecording = state.isRecording,
+                    onRecordToggle = onRecordToggle,
+                )
+                SpeedometerCard(
+                    speedKmh = state.speed,
+                    leanAngle = state.roll,
+                    speedUnit = state.speedUnit,
+                    isRecording = state.isRecording,
+                    maxLeftRoll = state.maxLeftRoll,
+                    maxRightRoll = state.maxRightRoll,
+                    brakeEvent = state.brakeEvent,
+                    onMarkIssue = {
+                        onMarkIssue()
+                        Toast.makeText(context, issueMarkedMessage, Toast.LENGTH_SHORT).show()
+                    },
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                )
+                if (state.showTpmsData) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    TPMSCard(
+                        rearPressure = state.rearPressure,
+                        frontPressure = state.frontPressure,
+                        rearTemp = state.rearTemp,
+                        frontTemp = state.frontTemp,
+                        rearBat = state.rearBat,
+                        frontBat = state.frontBat,
+                        pressureUnit = state.pressureUnit,
+                        rearColor = state.rearPressureColor,
+                        frontColor = state.frontPressureColor,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
             }
         }
 
@@ -296,6 +375,24 @@ fun DashBoardScreenRecordingNoTpmsPreview() {
                     showTpmsData = false,
                     maxLeftRoll = "28°",
                     maxRightRoll = "32°",
+                ),
+            uiEvent = kotlinx.coroutines.flow.MutableSharedFlow(),
+        )
+    }
+}
+
+@Preview(showBackground = true, name = "Dashboard - Landscape", widthDp = 852, heightDp = 393)
+@Composable
+fun DashBoardScreenLandscapePreview() {
+    SpeedoTheme {
+        DashBoardScreen(
+            state =
+                DashBoardState(
+                    speed = "59",
+                    roll = "22°",
+                    isRecording = true,
+                    maxLeftRoll = "0",
+                    maxRightRoll = "0",
                 ),
             uiEvent = kotlinx.coroutines.flow.MutableSharedFlow(),
         )
