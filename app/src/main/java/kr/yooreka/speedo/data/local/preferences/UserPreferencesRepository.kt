@@ -10,6 +10,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import kr.yooreka.speedo.domain.model.LeanMode
 import kr.yooreka.speedo.domain.model.OverlayMode
@@ -29,6 +30,7 @@ data class UserPreferences(
     val launchCount: Int,
     val leanMeasurementMode: String,
     val autoStopThresholdMin: Int,
+    val isFirstLaunch: Boolean,
 )
 
 @Singleton
@@ -37,6 +39,8 @@ class UserPreferencesRepository
     constructor(
         @ApplicationContext private val context: Context,
     ) {
+        private var fallbackIsFirstLaunch: Boolean = true
+
         private object PreferencesKeys {
             val SHOW_TPMS_DATA = booleanPreferencesKey("show_tpms_data")
             val SPEED_UNIT = stringPreferencesKey("speed_unit")
@@ -50,6 +54,7 @@ class UserPreferencesRepository
             val OVERLAY_MODE = stringPreferencesKey("overlay_mode")
             val OVERLAY_SIZE = stringPreferencesKey("overlay_size")
             val OVERLAY_OPACITY = intPreferencesKey("overlay_opacity")
+            val IS_FIRST_LAUNCH = booleanPreferencesKey("is_first_launch")
         }
 
         val userPreferencesFlow: Flow<UserPreferences> =
@@ -64,6 +69,7 @@ class UserPreferencesRepository
                     val leanMeasurementMode =
                         preferences[PreferencesKeys.LEAN_MEASUREMENT_MODE] ?: LeanMode.DEFAULT.name
                     val autoStopThresholdMin = preferences[PreferencesKeys.AUTO_STOP_THRESHOLD] ?: DEFAULT_AUTO_STOP_MIN
+                    val isFirstLaunch = preferences[PreferencesKeys.IS_FIRST_LAUNCH] ?: fallbackIsFirstLaunch
 
                     UserPreferences(
                         showTpmsData = showTpmsData,
@@ -74,6 +80,22 @@ class UserPreferencesRepository
                         launchCount = launchCount,
                         leanMeasurementMode = leanMeasurementMode,
                         autoStopThresholdMin = autoStopThresholdMin,
+                        isFirstLaunch = isFirstLaunch,
+                    )
+                }
+                .catch { e ->
+                    emit(
+                        UserPreferences(
+                            showTpmsData = false,
+                            speedUnit = "KM/H",
+                            pressureUnit = "PSI",
+                            frontTpmsId = "",
+                            rearTpmsId = "",
+                            launchCount = 0,
+                            leanMeasurementMode = LeanMode.DEFAULT.name,
+                            autoStopThresholdMin = DEFAULT_AUTO_STOP_MIN,
+                            isFirstLaunch = fallbackIsFirstLaunch,
+                        ),
                     )
                 }
 
@@ -98,6 +120,17 @@ class UserPreferencesRepository
                         opacity = preferences[PreferencesKeys.OVERLAY_OPACITY] ?: DEFAULT_OVERLAY_OPACITY,
                     )
                 }
+
+        suspend fun updateFirstLaunch(isFirstLaunch: Boolean) {
+            try {
+                context.dataStore.edit { preferences ->
+                    preferences[PreferencesKeys.IS_FIRST_LAUNCH] = isFirstLaunch
+                }
+                fallbackIsFirstLaunch = isFirstLaunch
+            } catch (e: Exception) {
+                fallbackIsFirstLaunch = isFirstLaunch
+            }
+        }
 
         suspend fun incrementLaunchCount() {
             context.dataStore.edit { preferences ->

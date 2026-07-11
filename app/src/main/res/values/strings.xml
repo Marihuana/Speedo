@@ -182,4 +182,9 @@
 
     <!-- Misc -->
     <string name="press_back_again_to_exit">Press back again to exit.</string>
+
+    <!-- Safety Guide -->
+    <string name="guide_safety_title">Safety Information</string>
+    <string name="guide_safety_message">This app provides riding telemetry data for convenience. Operating your smartphone while riding is extremely dangerous. Please operate the app only when safely parked. Always wear protective gear and comply with traffic laws for a safe ride.</string>
+    <string name="guide_safety_confirm">Agree &amp; Confirm</string>
 </resources>

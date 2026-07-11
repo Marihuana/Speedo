@@ -181,4 +181,9 @@
 
     <!-- Misc -->
     <string name="press_back_again_to_exit">한 번 더 누르시면 앱이 종료됩니다.</string>
+
+    <!-- Safety Guide -->
+    <string name="guide_safety_title">안전 운행 안내</string>
+    <string name="guide_safety_message">본 앱은 모터사이클 라이더의 편의를 위해 주행 정보를 제공합니다.\n주행 중 스마트폰 조작은 매우 위험하오니 반드시 정차한 상태에서 조작해 주시고, 항상 안전 장구를 착용하고 도로 교통 법규를 준수하여 안전하게 운행하시기 바랍니다.</string>
+    <string name="guide_safety_confirm">동의 및 확인</string>
 </resources>
