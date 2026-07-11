@@ -60,6 +60,8 @@ class UserPreferencesRepository
             val OVERLAY_OPACITY = intPreferencesKey("overlay_opacity")
             val IS_FIRST_LAUNCH = booleanPreferencesKey("is_first_launch")
             val LEAN_OFFSET_DEGREES = floatPreferencesKey("lean_offset_degrees")
+            val OVERLAY_POS_X = intPreferencesKey("overlay_pos_x")
+            val OVERLAY_POS_Y = intPreferencesKey("overlay_pos_y")
         }
 
         val userPreferencesFlow: Flow<UserPreferences> =
@@ -139,6 +141,35 @@ class UserPreferencesRepository
                         opacity = preferences[PreferencesKeys.OVERLAY_OPACITY] ?: DEFAULT_OVERLAY_OPACITY,
                     )
                 }
+
+        /**
+         * 플로팅 오버레이 위젯 위치(F-19b). 사용자가 드래그로 옮긴 좌표를 영속화한다.
+         * 저장된 값이 없으면 null(서비스가 초기 위치 사용).
+         */
+        val overlayPositionFlow: Flow<Pair<Int, Int>?> =
+            context.dataStore.data
+                .map { preferences ->
+                    val x = preferences[PreferencesKeys.OVERLAY_POS_X]
+                    val y = preferences[PreferencesKeys.OVERLAY_POS_Y]
+                    if (x != null && y != null) x to y else null
+                }
+
+        /** 오버레이 위젯 위치(F-19b)를 영속 저장한다. 드래그 종료 시 호출. */
+        suspend fun updateOverlayPosition(
+            x: Int,
+            y: Int,
+        ) {
+            try {
+                context.dataStore.edit { preferences ->
+                    preferences[PreferencesKeys.OVERLAY_POS_X] = x
+                    preferences[PreferencesKeys.OVERLAY_POS_Y] = y
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                crashReporter.recordNonFatal(e, "updateOverlayPosition persistence failed")
+            }
+        }
 
         suspend fun updateFirstLaunch(isFirstLaunch: Boolean) {
             try {

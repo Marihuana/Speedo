@@ -35,6 +35,7 @@ fun OverlayContent(
     onTap: () -> Unit,
     onDrag: (dxPx: Float, dyPx: Float) -> Unit,
     modifier: Modifier = Modifier,
+    onDragEnd: () -> Unit = {},
 ) {
     val baseDensity = LocalDensity.current
     // 크기 조절(F-19b): Density 배율로 dp/sp를 함께 키워 레이아웃 크기까지 변경한다.
@@ -52,7 +53,9 @@ fun OverlayContent(
                     detectTapGestures(onTap = { onTap() })
                 }
                 .pointerInput(Unit) {
-                    detectDragGesturesAfterLongPress { change, dragAmount ->
+                    detectDragGesturesAfterLongPress(
+                        onDragEnd = { onDragEnd() },
+                    ) { change, dragAmount ->
                         change.consume()
                         onDrag(dragAmount.x, dragAmount.y)
                     }
