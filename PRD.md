@@ -147,15 +147,15 @@
 
 ### 3.2 UI 텍스트 라이팅 (Strings)
 
-앱 내에 노출되는 주요 알림 및 메시지의 표준 텍스트 정의입니다. 한국어 및 영어를 표준으로 지원합니다.
+앱 내에 노출되는 주요 알림 및 메시지의 표준 텍스트 정의입니다. 한국어 및 영어를 표준으로 지원합니다. (리소스 ID는 실제 구현 코드 기준으로 정합함. `maintenance_*` 는 v1.1 예정 항목으로 미구현 상태의 목표 사양임.)
 
 | 리소스 ID | 화면 위치 | 노출 문구 (한국어) | 노출 문구 (영어) | 비고 |
 |---|---|---|---|---|
-| `permission_location_denied` | Splash 권한 거부 팝업 | "위치 권한이 허용되지 않아 앱을 시작할 수 없습니다. 설정에서 권한을 허용해 주세요." | "Location permission is required to use this app. Please enable it in settings." | 확인 시 앱 종료 |
-| `exit_double_tap_toast` | 메인 화면 뒤로가기 | "한 번 더 누르면 앱이 종료됩니다." | "Press back again to exit." | 토스트 메시지 |
-| `auto_stop_notification` | 상태 표시줄 / 알림 | "주행 종료가 감지되어 주행 기록을 종료했습니다." | "Ride recording has ended due to inactivity." | 자동 종료 시 제공 |
+| `splash_location_denied` | Splash 권한 거부 안내 | "위치 권한이 허용되지 않아 앱을 시작할 수 없습니다. 설정에서 권한을 허용해 주세요." | "Location permission is required to use this app. Please enable it in settings." | 확인 시 앱 종료 |
+| `press_back_again_to_exit` | 메인 화면 뒤로가기 | "한 번 더 누르면 앱이 종료됩니다." | "Press back again to exit." | 토스트 메시지 |
+| `auto_stop_notif_title` / `auto_stop_notif_text` | 상태 표시줄 / 알림 | "주행 종료가 감지되어 주행 기록을 종료했습니다." | "Ride recording has ended due to inactivity." | 자동 종료 시 제공 |
 | `error_invalid_ride` | 주행 상세 로그 화면 | "존재하지 않거나 삭제된 주행 기록입니다." | "This ride record does not exist or has been deleted." | 잘못된 ID 접근 시 에러 화면 |
-| `delete_confirm_message` | 주행 목록 (삭제 시) | "이 주행 기록을 삭제하시겠습니까? 삭제된 기록은 되돌릴 수 없습니다." | "Are you sure you want to delete this ride? This action cannot be undone." | [삭제] / [취소] 버튼 제공 |
+| `delete_ride_message` | 주행 목록 (삭제 시) | "이 주행 기록을 삭제하시겠습니까? 삭제된 기록은 되돌릴 수 없습니다." | "Are you sure you want to delete this ride? This action cannot be undone." | [삭제] / [취소] 버튼 제공 |
 | `maintenance_empty_state` | Garage 탭 (기록 없음) | "아직 등록된 정비 이력이 없습니다. 첫 정비 기록을 추가해 보세요!" | "No maintenance records yet. Add your first record!" | |
 | `maintenance_delete_confirm`| 상세 화면 (삭제 시) | "이 정비 기록을 삭제하시겠습니까? 삭제된 기록은 복구할 수 없습니다." | "Are you sure you want to delete this maintenance record? This cannot be undone." | |
 | `maintenance_cost_negative_err`| 등록/수정 화면 (비용 오류) | "정비 비용은 0원 이상이어야 합니다." | "Maintenance cost must be 0 or greater." | 에러 텍스트 |
