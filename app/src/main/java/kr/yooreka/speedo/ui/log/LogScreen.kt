@@ -191,6 +191,7 @@ fun LogScreen(
     viewModel: LogViewModel = hiltViewModel(),
     onBackClick: () -> Unit = {},
     modifier: Modifier = Modifier,
+    showBackButton: Boolean = true,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -277,6 +278,7 @@ fun LogScreen(
         },
         onSelectPrevious = { viewModel.selectPrevious() },
         onSelectNext = { viewModel.selectNext() },
+        showBackButton = showBackButton,
         modifier = modifier,
     )
 }
@@ -348,6 +350,7 @@ fun LogScreenContent(
     onSelectPrevious: () -> Unit = {},
     onSelectNext: () -> Unit = {},
     modifier: Modifier = Modifier,
+    showBackButton: Boolean = true,
 ) {
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
@@ -378,6 +381,7 @@ fun LogScreenContent(
                     title = title,
                     date = date,
                     onBackClick = onBackClick,
+                    showBackButton = showBackButton,
                     modifier =
                         Modifier
                             .align(Alignment.TopStart)
@@ -438,6 +442,7 @@ fun LogScreenContent(
                 title = title,
                 date = date,
                 onBackClick = onBackClick,
+                showBackButton = showBackButton,
                 modifier =
                     Modifier
                         .align(Alignment.TopCenter)
@@ -622,6 +627,7 @@ fun LogHeader(
     date: String,
     onBackClick: () -> Unit,
     modifier: Modifier = Modifier,
+    showBackButton: Boolean = true,
 ) {
     Row(
         modifier =
@@ -630,25 +636,27 @@ fun LogHeader(
                 .padding(horizontal = 20.dp, vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // 뒤로가기 버튼
-        Box(
-            modifier =
-                Modifier
-                    .size(56.dp)
-                    .clip(CircleShape)
-                    .background(BackBtnBg)
-                    .clickableNoRipple(onBackClick),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                contentDescription = stringResource(R.string.cancel),
-                tint = PrimaryText,
-                modifier = Modifier.size(28.dp),
-            )
-        }
+        // 뒤로가기 버튼 — 마스터-디테일(가로 기록탭) 우측 패널에서는 숨긴다.
+        if (showBackButton) {
+            Box(
+                modifier =
+                    Modifier
+                        .size(56.dp)
+                        .clip(CircleShape)
+                        .background(BackBtnBg)
+                        .clickableNoRipple(onBackClick),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                    contentDescription = stringResource(R.string.cancel),
+                    tint = PrimaryText,
+                    modifier = Modifier.size(28.dp),
+                )
+            }
 
-        Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.width(16.dp))
+        }
 
         // 지도와 색이 비슷해 가독성이 떨어지므로 반투명 다크 배경을 깔아 타이틀/시간을 분리한다.
         Column(

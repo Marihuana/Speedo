@@ -16,12 +16,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.GridItemSpan
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -38,6 +33,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -58,6 +54,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kr.yooreka.speedo.R
 import kr.yooreka.speedo.ui.components.BannerAd
+import kr.yooreka.speedo.ui.log.LogScreen
+import kr.yooreka.speedo.ui.log.LogViewModel
 import kr.yooreka.speedo.ui.theme.BackgroundBlack
 import kr.yooreka.speedo.ui.theme.DangerRed
 import kr.yooreka.speedo.ui.theme.NeonGreen
@@ -65,12 +63,6 @@ import kr.yooreka.speedo.ui.theme.SlateDark
 import kr.yooreka.speedo.ui.theme.SlateSubText
 import kr.yooreka.speedo.ui.theme.SlateText
 import kr.yooreka.speedo.ui.theme.SpeedoTheme
-
-/** 가로모드에서 2열 그리드를 적용할 최소 화면 너비(dp). 이보다 좁으면 1열 스크롤로 폴백(PRD §4.6). */
-private const val LANDSCAPE_TWO_COLUMN_MIN_WIDTH_DP = 600
-
-/** 가로모드 목록 콘텐츠 최대 너비(dp). 태블릿 등 광활한 화면에서 카드가 과도하게 벌어지는 것을 방지(PRD §4.6). */
-private const val LANDSCAPE_CONTENT_MAX_WIDTH_DP = 840
 
 data class RideRecord(
     val id: Long,
@@ -140,6 +132,14 @@ fun RecordsScreen(
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
 
+    // 가로 마스터-디테일 선택 상태. 최신(첫) 주행을 기본 선택하고, 선택 주행이 목록에서 사라지면 재선정한다.
+    var selectedRideId by rememberSaveable { mutableStateOf<Long?>(null) }
+    LaunchedEffect(records) {
+        if (records.isNotEmpty() && records.none { it.id == selectedRideId }) {
+            selectedRideId = records.first().id
+        }
+    }
+
     Column(
         modifier =
             Modifier
@@ -148,43 +148,51 @@ fun RecordsScreen(
     ) {
         Box(modifier = Modifier.weight(1f)) {
             if (isLandscape) {
-                // 가로모드(F-26): 가로 폭을 2열 그리드로 분할 활용해 목록 가시성 향상.
-                // 극단적으로 좁은 해상도(폴더블 커버 화면 등)에서는 1열 스크롤로 폴백(PRD §4.6).
-                RecordsLandscapeContent(
+                // 가로모드(F-26): 좌측 주행 목록 + 우측 선택 주행 상세(지도+텔레메트리) 마스터-디테일 분할.
+                Row(modifier = Modifier.fillMaxSize()) {
+                    RecordsListContent(
+                        records = records,
+                        totalDistance = totalDistance,
+                        selectedRideId = selectedRideId,
+                        onRecordClick = { id -> selectedRideId = id },
+                        onEditRecord = { editingRecordId = it },
+                        onDeleteRecord = { deletingRecordId = it },
+                        modifier =
+                            Modifier
+                                .weight(0.4f)
+                                .fillMaxHeight()
+                                .padding(start = 24.dp, end = 12.dp),
+                    )
+                    Box(
+                        modifier =
+                            Modifier
+                                .weight(0.6f)
+                                .fillMaxHeight(),
+                    ) {
+                        val detailRideId = selectedRideId
+                        if (detailRideId != null) {
+                            RecordsDetailPane(
+                                rideId = detailRideId,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        } else {
+                            RecordsEmptyDetail(modifier = Modifier.fillMaxSize())
+                        }
+                    }
+                }
+            } else {
+                RecordsListContent(
                     records = records,
                     totalDistance = totalDistance,
-                    columns = if (configuration.screenWidthDp >= LANDSCAPE_TWO_COLUMN_MIN_WIDTH_DP) 2 else 1,
+                    selectedRideId = null,
                     onRecordClick = onRecordClick,
-                    onEditRecord = { editingRecordId = it.id },
-                    onDeleteRecord = { deletingRecordId = it.id },
-                )
-            } else {
-                Column(
+                    onEditRecord = { editingRecordId = it },
+                    onDeleteRecord = { deletingRecordId = it },
                     modifier =
                         Modifier
                             .fillMaxSize()
                             .padding(horizontal = 24.dp),
-                ) {
-                    RecordsHeader()
-
-                    TotalDistanceCard(totalDistance)
-
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    LazyColumn(
-                        verticalArrangement = Arrangement.spacedBy(16.dp),
-                        contentPadding = PaddingValues(bottom = 24.dp),
-                    ) {
-                        items(records, key = { it.id }) { record ->
-                            RideRecordCard(
-                                record = record,
-                                onClick = onRecordClick,
-                                onRenameClick = { editingRecordId = record.id },
-                                onDeleteClick = { deletingRecordId = record.id },
-                            )
-                        }
-                    }
-                }
+                )
             }
         }
 
@@ -196,52 +204,83 @@ fun RecordsScreen(
 }
 
 /**
- * 가로모드 전용 주행 목록 레이아웃(F-26).
- *
- * 헤더/총 주행거리 카드는 전체 폭(span)으로 상단에 고정하고, 주행 기록은 [columns]열 그리드로 배치해
- * 가로 폭을 효율적으로 활용한다. 태블릿 등 광활한 화면에서 카드가 과도하게 벌어지지 않도록
- * 최대 너비를 제한하고(PRD §4.6), 콘텐츠를 상단 중앙 정렬한다.
+ * 주행 목록 콘텐츠(헤더 + 총 주행거리 카드 + 기록 리스트). 세로 전체 화면과 가로 좌측 패널에서 공용으로 쓴다.
+ * [selectedRideId] 가 지정되면(가로 마스터-디테일) 해당 카드를 선택 상태로 강조한다.
  */
 @Composable
-private fun RecordsLandscapeContent(
+private fun RecordsListContent(
     records: List<RideRecord>,
     totalDistance: String,
-    columns: Int,
+    selectedRideId: Long?,
     onRecordClick: (Long) -> Unit,
-    onEditRecord: (RideRecord) -> Unit,
-    onDeleteRecord: (RideRecord) -> Unit,
+    onEditRecord: (Long) -> Unit,
+    onDeleteRecord: (Long) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.TopCenter,
+    // 헤더와 총 주행거리 카드까지 목록과 함께 스크롤되도록 LazyColumn 첫 아이템으로 포함한다.
+    LazyColumn(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+        contentPadding = PaddingValues(bottom = 24.dp),
     ) {
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(columns),
-            modifier =
-                Modifier
-                    .fillMaxHeight()
-                    .widthIn(max = LANDSCAPE_CONTENT_MAX_WIDTH_DP.dp)
-                    .padding(horizontal = 24.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            contentPadding = PaddingValues(bottom = 24.dp),
-        ) {
-            item(span = { GridItemSpan(maxLineSpan) }) {
-                Column {
-                    RecordsHeader()
-                    TotalDistanceCard(totalDistance)
-                    Spacer(modifier = Modifier.height(8.dp))
-                }
+        item(key = "header") {
+            Column {
+                RecordsHeader()
+                TotalDistanceCard(totalDistance)
+                Spacer(modifier = Modifier.height(8.dp))
             }
+        }
+
+        if (records.isEmpty()) {
+            item(key = "empty") {
+                RecordsEmptyDetail(modifier = Modifier.fillMaxWidth())
+            }
+        } else {
             items(records, key = { it.id }) { record ->
                 RideRecordCard(
                     record = record,
+                    isSelected = record.id == selectedRideId,
                     onClick = onRecordClick,
-                    onRenameClick = { onEditRecord(record) },
-                    onDeleteClick = { onDeleteRecord(record) },
+                    onRenameClick = { onEditRecord(record.id) },
+                    onDeleteClick = { onDeleteRecord(record.id) },
                 )
             }
         }
+    }
+}
+
+/**
+ * 가로 기록탭 우측 상세 패널. 선택된 [rideId] 의 주행 상세(지도 + 텔레메트리)를 LogScreen 재사용으로 렌더링한다.
+ * nav 백스택 진입이 아니므로 LogViewModel 을 직접 얻어 loadRide 로 선택 주행을 주입하고, 뒤로가기 버튼은 숨긴다.
+ */
+@Composable
+private fun RecordsDetailPane(
+    rideId: Long,
+    modifier: Modifier = Modifier,
+) {
+    val logViewModel: LogViewModel = hiltViewModel()
+    LaunchedEffect(rideId) { logViewModel.loadRide(rideId) }
+    LogScreen(
+        viewModel = logViewModel,
+        showBackButton = false,
+        modifier = modifier,
+    )
+}
+
+/** 표시할 주행이 없을 때(빈 목록/미선택) 중앙 안내 문구(PRD §4.2). */
+@Composable
+private fun RecordsEmptyDetail(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier,
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = stringResource(R.string.records_empty),
+            color = SlateSubText,
+            fontSize = 14.sp,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(24.dp),
+        )
     }
 }
 
@@ -313,6 +352,7 @@ fun RideRecordCard(
     onClick: (Long) -> Unit,
     onRenameClick: () -> Unit = {},
     onDeleteClick: () -> Unit = {},
+    isSelected: Boolean = false,
 ) {
     var expanded by rememberSaveable { mutableStateOf(false) }
 
@@ -323,7 +363,8 @@ fun RideRecordCard(
         onClick = { onClick(record.id) },
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = SlateDark),
-        border = androidx.compose.foundation.BorderStroke(1.875.dp, Color.Transparent),
+        // 가로 마스터-디테일에서 선택된 주행을 네온 테두리로 강조한다.
+        border = androidx.compose.foundation.BorderStroke(1.875.dp, if (isSelected) NeonGreen else Color.Transparent),
     ) {
         Column(modifier = Modifier.padding(22.dp)) {
             Row(

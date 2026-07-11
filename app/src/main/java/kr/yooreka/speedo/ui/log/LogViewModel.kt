@@ -54,6 +54,9 @@ class LogViewModel
         private val dateFormatter =
             DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm", Locale.getDefault()).withZone(ZoneId.systemDefault())
 
+        // 현재 로드된 주행 id. 마스터-디테일(가로 기록탭)에서 동일 주행 재선택 시 중복 로드를 막는다.
+        private var loadedRideId: Long? = null
+
         init {
             val rideId = savedStateHandle.get<Long>("rideId") ?: -1L
             if (rideId != -1L) {
@@ -63,7 +66,18 @@ class LogViewModel
             }
         }
 
+        /**
+         * 지정한 주행 상세를 로드한다(가로 기록탭 마스터-디테일 우측 패널 진입점).
+         * nav 인자로 rideId가 오지 않는 재사용 컨텍스트에서 선택된 주행을 갱신하기 위해 사용한다.
+         */
+        fun loadRide(rideId: Long) {
+            if (rideId == loadedRideId) return
+            _uiState.value = LogState(isLoading = true)
+            fetchRideDetails(rideId)
+        }
+
         private fun fetchRideDetails(rideId: Long) {
+            loadedRideId = rideId
             viewModelScope.launch {
                 val telemetryData = getRideTelemetryUseCase(rideId).getOrDefault(emptyList())
                 // CPU 집약 보간(F-13c/d)은 Default 디스패처로 오프로딩해 UI/지도 렌더와 경합하지 않게 한다.

@@ -34,6 +34,7 @@
     <string name="records_title">RECORDS</string>
     <string name="records_subtitle">RIDING HISTORY</string>
     <string name="total_distance">TOTAL DISTANCE</string>
+    <string name="records_empty">No rides recorded. Start a new ride!</string>
     <string name="kilometers">Kilometers</string>
     <string name="duration">Duration</string>
     <string name="distance">Distance</string>
