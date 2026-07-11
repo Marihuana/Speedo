@@ -52,6 +52,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -193,6 +194,12 @@ fun LogScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
+    // 잘못된/삭제된 rideId 접근 또는 상세 조회 실패(PRD §3.2 error_invalid_ride)는 지도 대신 에러 화면을 노출한다.
+    if (state.isError) {
+        LogErrorContent(onBackClick = onBackClick, modifier = modifier)
+        return
+    }
+
     val isDarkTheme = isSystemInDarkTheme()
     val routePoints =
         remember(state.routePoints, isDarkTheme) {
@@ -272,6 +279,57 @@ fun LogScreen(
         onSelectNext = { viewModel.selectNext() },
         modifier = modifier,
     )
+}
+
+/**
+ * 잘못된/삭제된 주행 기록 접근 시 표시하는 에러 화면(PRD §3.2 error_invalid_ride, §4.2).
+ * 빈 지도 대신 중앙 정렬 안내 문구 + 뒤로가기 버튼만 노출한다.
+ */
+@Composable
+fun LogErrorContent(
+    onBackClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier =
+            modifier
+                .fillMaxSize()
+                .background(ScreenBg),
+    ) {
+        // 좌상단 뒤로가기 버튼(정상 화면 헤더와 동일한 스타일).
+        Box(
+            modifier =
+                Modifier
+                    .align(Alignment.TopStart)
+                    .statusBarsPadding()
+                    .padding(horizontal = 20.dp, vertical = 16.dp)
+                    .size(56.dp)
+                    .clip(CircleShape)
+                    .background(BackBtnBg)
+                    .clickableNoRipple(onBackClick),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                contentDescription = stringResource(R.string.cancel),
+                tint = PrimaryText,
+                modifier = Modifier.size(28.dp),
+            )
+        }
+
+        Text(
+            text = stringResource(R.string.error_invalid_ride),
+            color = SecondaryText,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 0.5.sp,
+            textAlign = TextAlign.Center,
+            modifier =
+                Modifier
+                    .align(Alignment.Center)
+                    .padding(horizontal = 40.dp),
+        )
+    }
 }
 
 /**

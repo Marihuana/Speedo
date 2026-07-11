@@ -32,6 +32,8 @@ data class LogState(
     val maxSpeed: String = "0",
     val routePoints: List<RideTelemetry> = emptyList(),
     val selectedPoint: RideTelemetry? = null,
+    // 잘못된/삭제된 rideId 접근 또는 상세 조회 실패 시 에러 화면 노출(PRD §3.2 error_invalid_ride, §4.2).
+    val isError: Boolean = false,
 )
 
 @HiltViewModel
@@ -57,7 +59,7 @@ class LogViewModel
             if (rideId != -1L) {
                 fetchRideDetails(rideId)
             } else {
-                _uiState.value = _uiState.value.copy(isLoading = false, title = "Error: Invalid Ride ID")
+                _uiState.value = _uiState.value.copy(isLoading = false, isError = true)
             }
         }
 
@@ -88,7 +90,7 @@ class LogViewModel
                             )
                     },
                     onFailure = {
-                        _uiState.value = LogState(isLoading = false, title = "Record not found")
+                        _uiState.value = LogState(isLoading = false, isError = true)
                     },
                 )
             }

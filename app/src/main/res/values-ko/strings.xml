@@ -177,6 +177,7 @@
     <string name="summary_max_lean">MAX LEAN</string>
     <string name="segment_prev">◀ 이전</string>
     <string name="segment_next">다음 ▶</string>
+    <string name="error_invalid_ride">존재하지 않거나 삭제된 주행 기록입니다.</string>
 
     <!-- Splash -->
     <string name="splash_title">EVERY BARI</string>

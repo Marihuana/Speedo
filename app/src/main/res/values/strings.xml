@@ -178,6 +178,7 @@
     <string name="summary_max_lean">MAX LEAN</string>
     <string name="segment_prev">◀ PREV</string>
     <string name="segment_next">NEXT ▶</string>
+    <string name="error_invalid_ride">This ride record does not exist or has been deleted.</string>
 
     <!-- Splash -->
     <string name="splash_title">EVERY BARI</string>
