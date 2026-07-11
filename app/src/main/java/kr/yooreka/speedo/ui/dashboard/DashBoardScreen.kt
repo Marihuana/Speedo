@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -28,6 +29,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -41,8 +43,11 @@ import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.flow.SharedFlow
 import kr.yooreka.speedo.R
 import kr.yooreka.speedo.ui.dashboard.components.AutoStopDialog
+import kr.yooreka.speedo.ui.dashboard.components.LeanAngleLandscapeCard
 import kr.yooreka.speedo.ui.dashboard.components.RecordingStartDialog
+import kr.yooreka.speedo.ui.dashboard.components.RideStatsLandscapeCard
 import kr.yooreka.speedo.ui.dashboard.components.SpeedometerCard
+import kr.yooreka.speedo.ui.dashboard.components.SpeedometerOnlyCard
 import kr.yooreka.speedo.ui.dashboard.components.TPMSCard
 import kr.yooreka.speedo.ui.theme.BackgroundBlack
 import kr.yooreka.speedo.ui.theme.GreenSuccess
@@ -53,6 +58,7 @@ import kr.yooreka.speedo.ui.theme.SpeedoTheme
 fun DashBoardScreen(
     state: DashBoardState,
     uiEvent: SharedFlow<DashBoardUiEvent>,
+    modifier: Modifier = Modifier,
     onRecordToggle: () -> Unit = {},
     onConfirmRecording: () -> Unit = {},
     onShowInterstitial: () -> Unit = {},
@@ -77,48 +83,108 @@ fun DashBoardScreen(
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        Column(
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .background(BackgroundBlack)
-                    .padding(20.dp),
-        ) {
-            DashBoardHeader(
-                isRecording = state.isRecording,
-                onRecordToggle = onRecordToggle,
-            )
-            SpeedometerCard(
-                speedKmh = state.speed,
-                leanAngle = state.roll,
-                speedUnit = state.speedUnit,
-                isRecording = state.isRecording,
-                maxLeftRoll = state.maxLeftRoll,
-                maxRightRoll = state.maxRightRoll,
-                onMarkIssue = {
-                    onMarkIssue()
-                    Toast.makeText(context, issueMarkedMessage, Toast.LENGTH_SHORT).show()
-                },
+    Box(modifier = modifier.fillMaxSize()) {
+        val configuration = LocalConfiguration.current
+        val isLandscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+
+        if (isLandscape) {
+            Row(
                 modifier =
                     Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-            )
-            if (state.showTpmsData) {
-                Spacer(modifier = Modifier.height(16.dp))
-                TPMSCard(
-                    rearPressure = state.rearPressure,
-                    frontPressure = state.frontPressure,
-                    rearTemp = state.rearTemp,
-                    frontTemp = state.frontTemp,
-                    rearBat = state.rearBat,
-                    frontBat = state.frontBat,
-                    pressureUnit = state.pressureUnit,
-                    rearColor = state.rearPressureColor,
-                    frontColor = state.frontPressureColor,
-                    modifier = Modifier.fillMaxWidth(),
+                        .fillMaxSize()
+                        .background(BackgroundBlack)
+                        .padding(16.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                // 가로모드 좌측 (6): 스피드미터 전용 카드
+                Box(
+                    modifier =
+                        Modifier
+                            .weight(1.2f)
+                            .fillMaxHeight(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    SpeedometerOnlyCard(
+                        speedKmh = state.speed,
+                        speedUnit = state.speedUnit,
+                        isRecording = state.isRecording,
+                        onMarkIssue = {
+                            onMarkIssue()
+                            Toast.makeText(context, issueMarkedMessage, Toast.LENGTH_SHORT).show()
+                        },
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
+
+                // 가로모드 우측 (4): 뱅킹각(게이지 포함) 및 주행 정보 통계 카드
+                Column(
+                    modifier =
+                        Modifier
+                            .weight(0.8f)
+                            .fillMaxHeight(),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    LeanAngleLandscapeCard(
+                        leanAngle = state.roll,
+                        maxLeftRoll = state.maxLeftRoll,
+                        maxRightRoll = state.maxRightRoll,
+                        isRecording = state.isRecording,
+                        modifier = Modifier.weight(1.2f),
+                    )
+                    RideStatsLandscapeCard(
+                        duration = state.rideDuration,
+                        distance = state.rideDistance,
+                        speedUnit = state.speedUnit,
+                        isRecording = state.isRecording,
+                        isRecordingActive = state.isRecording,
+                        onRecordToggle = onRecordToggle,
+                        modifier = Modifier.weight(0.8f),
+                    )
+                }
+            }
+        } else {
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .background(BackgroundBlack)
+                        .padding(20.dp),
+            ) {
+                DashBoardHeader(
+                    isRecording = state.isRecording,
+                    onRecordToggle = onRecordToggle,
                 )
+                SpeedometerCard(
+                    speedKmh = state.speed,
+                    leanAngle = state.roll,
+                    speedUnit = state.speedUnit,
+                    isRecording = state.isRecording,
+                    maxLeftRoll = state.maxLeftRoll,
+                    maxRightRoll = state.maxRightRoll,
+                    onMarkIssue = {
+                        onMarkIssue()
+                        Toast.makeText(context, issueMarkedMessage, Toast.LENGTH_SHORT).show()
+                    },
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                )
+                if (state.showTpmsData) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    TPMSCard(
+                        rearPressure = state.rearPressure,
+                        frontPressure = state.frontPressure,
+                        rearTemp = state.rearTemp,
+                        frontTemp = state.frontTemp,
+                        rearBat = state.rearBat,
+                        frontBat = state.frontBat,
+                        pressureUnit = state.pressureUnit,
+                        rearColor = state.rearPressureColor,
+                        frontColor = state.frontPressureColor,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
             }
         }
 

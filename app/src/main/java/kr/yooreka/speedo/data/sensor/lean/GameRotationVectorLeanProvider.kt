@@ -1,5 +1,7 @@
 package kr.yooreka.speedo.data.sensor.lean
 
+import android.content.Context
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kr.yooreka.speedo.data.sensor.datasource.GameRotationVectorSensor
 import kr.yooreka.speedo.domain.model.LeanMode
 import javax.inject.Inject
@@ -13,7 +15,8 @@ import javax.inject.Singleton
 class GameRotationVectorLeanProvider
     @Inject
     constructor(
+        @ApplicationContext context: Context,
         sensor: GameRotationVectorSensor,
-    ) : RotationVectorBaseLeanProvider(sensor) {
+    ) : RotationVectorBaseLeanProvider(context, sensor) {
         override val mode = LeanMode.GAME_ROTATION_VECTOR
     }

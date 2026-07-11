@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -21,8 +22,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material3.Icon
@@ -31,15 +34,21 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -282,45 +291,268 @@ fun LogScreenContent(
     onSelectNext: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
-    Box(
-        modifier =
-            modifier
-                .fillMaxSize()
-                .background(ScreenBg),
-    ) {
-        // 지도 + 경로 (상단 80%) — 가장 아래 레이어
-        Column(modifier = Modifier.fillMaxSize()) {
-            MapRouteSection(
-                routePoints = routePoints,
-                selectedLatLng = selectedLatLng,
-                onMapClick = onMapClick,
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+
+    if (isLandscape) {
+        Row(
+            modifier =
+                modifier
+                    .fillMaxSize()
+                    .background(ScreenBg),
+        ) {
+            // 가로모드 좌측 (6 비율): Google Map 경로 지도 전체 높이로 배치
+            Box(
                 modifier =
                     Modifier
-                        .fillMaxWidth()
-                        .weight(0.8f),
-            )
-            Spacer(modifier = Modifier.weight(0.2f))
+                        .weight(1.2f)
+                        .fillMaxHeight(),
+            ) {
+                MapRouteSection(
+                    routePoints = routePoints,
+                    selectedLatLng = selectedLatLng,
+                    onMapClick = onMapClick,
+                    modifier = Modifier.fillMaxSize(),
+                )
+
+                // 지도 위 좌측 상단에 헤더 얹기
+                LogHeader(
+                    title = title,
+                    date = date,
+                    onBackClick = onBackClick,
+                    modifier =
+                        Modifier
+                            .align(Alignment.TopStart)
+                            .statusBarsPadding(),
+                )
+            }
+
+            // 가로모드 우측 (4 비율): 주행 정보 요약 및 구간 데이터 제어판 (좌측 경계면에 단일 세로선 렌더링)
+            Box(
+                modifier =
+                    Modifier
+                        .weight(0.8f)
+                        .fillMaxHeight()
+                        .background(SheetBg)
+                        .drawBehind {
+                            drawLine(
+                                color = Color(0x80314158),
+                                start = Offset(0f, 0f),
+                                end = Offset(0f, size.height),
+                                strokeWidth = 0.6.dp.toPx(),
+                            )
+                        }
+                        .navigationBarsPadding(),
+                contentAlignment = Alignment.Center,
+            ) {
+                RideSummaryLandscapePanel(
+                    summary = summary,
+                    segmentSummary = segmentSummary,
+                    onSelectPrevious = onSelectPrevious,
+                    onSelectNext = onSelectNext,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
         }
-
-        // 헤더 (지도 위에 오버레이)
-        LogHeader(
-            title = title,
-            date = date,
-            onBackClick = onBackClick,
+    } else {
+        Box(
             modifier =
-                Modifier
-                    .align(Alignment.TopCenter)
-                    .statusBarsPadding(),
-        )
+                modifier
+                    .fillMaxSize()
+                    .background(ScreenBg),
+        ) {
+            // 지도 + 경로 (상단 80%) — 가장 아래 레이어
+            Column(modifier = Modifier.fillMaxSize()) {
+                MapRouteSection(
+                    routePoints = routePoints,
+                    selectedLatLng = selectedLatLng,
+                    onMapClick = onMapClick,
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .weight(0.8f),
+                )
+                Spacer(modifier = Modifier.weight(0.2f))
+            }
 
-        // 하단 주행정보 시트
-        RideSummarySheet(
-            summary = summary,
-            segmentSummary = segmentSummary,
-            onSelectPrevious = onSelectPrevious,
-            onSelectNext = onSelectNext,
-            modifier = Modifier.align(Alignment.BottomCenter),
-        )
+            // 헤더 (지도 위에 오버레이)
+            LogHeader(
+                title = title,
+                date = date,
+                onBackClick = onBackClick,
+                modifier =
+                    Modifier
+                        .align(Alignment.TopCenter)
+                        .statusBarsPadding(),
+            )
+
+            // 하단 주행정보 시트
+            RideSummarySheet(
+                summary = summary,
+                segmentSummary = segmentSummary,
+                onSelectPrevious = onSelectPrevious,
+                onSelectNext = onSelectNext,
+                modifier = Modifier.align(Alignment.BottomCenter),
+            )
+        }
+    }
+}
+
+@Composable
+fun RideSummaryLandscapePanel(
+    summary: RideSummary,
+    segmentSummary: RideSummary?,
+    modifier: Modifier = Modifier,
+    onSelectPrevious: () -> Unit = {},
+    onSelectNext: () -> Unit = {},
+) {
+    val scrollState = rememberScrollState()
+    Column(
+        modifier =
+            modifier
+                .verticalScroll(scrollState)
+                .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        if (segmentSummary == null) {
+            Text(
+                text = stringResource(R.string.session_summary),
+                color = SecondaryText,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.2.sp,
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // 세션 요약 가로모드 맞춤형 2x2 그리드 배열 (반응형 weight(1f) 적용)
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                ) {
+                    SummaryItem(
+                        R.drawable.ic_duration,
+                        stringResource(R.string.summary_time),
+                        summary.time,
+                        null,
+                        modifier = Modifier.weight(1f),
+                    )
+                    SummaryItem(
+                        R.drawable.ic_distance,
+                        stringResource(R.string.summary_dist),
+                        summary.distanceKm,
+                        "KM",
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                ) {
+                    SummaryItem(
+                        R.drawable.ic_monitor,
+                        stringResource(R.string.summary_top_speed),
+                        summary.topSpeedKmh,
+                        "KM/H",
+                        modifier = Modifier.weight(1f),
+                    )
+                    SummaryItem(
+                        R.drawable.ic_max_lean,
+                        stringResource(R.string.summary_max_lean),
+                        "${summary.maxLeanDeg}°",
+                        null,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+        } else {
+            Text(
+                text = stringResource(R.string.segment_telemetry),
+                color = NeonLime,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.2.sp,
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = stringResource(R.string.corner_speed),
+                        color = SecondaryText,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.1.sp,
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Row(verticalAlignment = Alignment.Bottom) {
+                        Text(
+                            text = segmentSummary.topSpeedKmh,
+                            color = PrimaryText,
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.Black,
+                        )
+                        Spacer(modifier = Modifier.width(2.dp))
+                        Text(
+                            text = "KM/H",
+                            color = SecondaryText,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(bottom = 2.dp),
+                        )
+                    }
+                }
+
+                Box(modifier = Modifier.height(48.dp).width(1.dp).background(Color(0xFF314158)))
+
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = stringResource(R.string.log_lean_angle),
+                        color = SecondaryText,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.1.sp,
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Row(verticalAlignment = Alignment.Bottom) {
+                        if (segmentSummary.leanDirection.isNotEmpty()) {
+                            Text(
+                                text = segmentSummary.leanDirection,
+                                color = NeonLime,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Black,
+                                modifier = Modifier.padding(bottom = 1.dp),
+                            )
+                        }
+                        Text(
+                            text = "${segmentSummary.maxLeanDeg}°",
+                            color = PrimaryText,
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.Black,
+                        )
+                    }
+                }
+            }
+
+            // 이전 지점 / 다음 지점 점단위 이동 제어 버튼 배치
+            Spacer(modifier = Modifier.height(16.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                SegmentNavButton(label = stringResource(R.string.segment_prev), onStep = onSelectPrevious, modifier = Modifier.weight(1f))
+                SegmentNavButton(label = stringResource(R.string.segment_next), onStep = onSelectNext, modifier = Modifier.weight(1f))
+            }
+        }
     }
 }
 
@@ -459,15 +691,22 @@ fun MapRouteSection(
             }
         }
 
+    val firstPos = routePoints.firstOrNull()?.position
+    var hasAnimatedToRoute by rememberSaveable(firstPos) { mutableStateOf(false) }
+
     LaunchedEffect(routePoints) {
         if (routePoints.isNotEmpty()) {
-            val boundsBuilder = LatLngBounds.builder()
-            routePoints.forEach { boundsBuilder.include(it.position) }
-            val bounds = boundsBuilder.build()
-            try {
-                cameraPositionState.animate(CameraUpdateFactory.newLatLngBounds(bounds, 150))
-            } catch (e: Exception) {
-                cameraPositionState.position = CameraPosition.fromLatLngZoom(bounds.center, 13f)
+            if (!hasAnimatedToRoute) {
+                val boundsBuilder = LatLngBounds.builder()
+                routePoints.forEach { boundsBuilder.include(it.position) }
+                val bounds = boundsBuilder.build()
+                try {
+                    cameraPositionState.animate(CameraUpdateFactory.newLatLngBounds(bounds, 150))
+                    hasAnimatedToRoute = true
+                } catch (e: Exception) {
+                    cameraPositionState.position = CameraPosition.fromLatLngZoom(bounds.center, 13f)
+                    hasAnimatedToRoute = true
+                }
             }
         } else {
             if (androidx.core.content.ContextCompat.checkSelfPermission(
@@ -613,10 +852,34 @@ fun RideSummarySheet(
                         .padding(horizontal = 24.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                SummaryItem(R.drawable.ic_duration, stringResource(R.string.summary_time), summary.time, null)
-                SummaryItem(R.drawable.ic_distance, stringResource(R.string.summary_dist), summary.distanceKm, "KM")
-                SummaryItem(R.drawable.ic_monitor, stringResource(R.string.summary_top_speed), summary.topSpeedKmh, "KM/H")
-                SummaryItem(R.drawable.ic_max_lean, stringResource(R.string.summary_max_lean), "${summary.maxLeanDeg}°", null)
+                SummaryItem(
+                    R.drawable.ic_duration,
+                    stringResource(R.string.summary_time),
+                    summary.time,
+                    null,
+                    modifier = Modifier.weight(1f),
+                )
+                SummaryItem(
+                    R.drawable.ic_distance,
+                    stringResource(R.string.summary_dist),
+                    summary.distanceKm,
+                    "KM",
+                    modifier = Modifier.weight(1f),
+                )
+                SummaryItem(
+                    R.drawable.ic_monitor,
+                    stringResource(R.string.summary_top_speed),
+                    summary.topSpeedKmh,
+                    "KM/H",
+                    modifier = Modifier.weight(1f),
+                )
+                SummaryItem(
+                    R.drawable.ic_max_lean,
+                    stringResource(R.string.summary_max_lean),
+                    "${summary.maxLeanDeg}°",
+                    null,
+                    modifier = Modifier.weight(1f),
+                )
             }
         } else {
             Text(
@@ -767,8 +1030,9 @@ private fun SummaryItem(
     label: String,
     value: String,
     unit: String? = null,
+    modifier: Modifier = Modifier,
 ) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(80.dp)) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = modifier) {
         Icon(
             painter = painterResource(icon),
             contentDescription = label,

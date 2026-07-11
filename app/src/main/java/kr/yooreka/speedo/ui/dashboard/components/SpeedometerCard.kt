@@ -5,8 +5,10 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -18,12 +20,16 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -32,6 +38,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -44,6 +51,7 @@ import kr.yooreka.speedo.ui.components.LeanGauge
 import kr.yooreka.speedo.ui.theme.NeonGreen
 import kr.yooreka.speedo.ui.theme.SlateSubText
 import kr.yooreka.speedo.utils.parseLeanAngle
+import java.util.Locale
 import kotlin.math.abs
 
 // ── 색상 ──────────────────────────────────────────────────────────────────────
@@ -177,12 +185,12 @@ fun SpeedometerCard(
             verticalArrangement = Arrangement.Center,
             modifier = Modifier.fillMaxWidth().padding(bottom = contentBottomPadding),
         ) {
-            Text(
+            AutoSizeText(
                 text = speedInt.toString(),
                 color = SpeedTextColor,
-                fontSize = speedFontSize,
+                minFontSize = 48f,
+                maxFontSize = if (isCompact) 72f else 120f,
                 fontWeight = FontWeight.Black,
-                letterSpacing = speedLetterSpacing,
                 textAlign = TextAlign.Center,
                 style = androidx.compose.ui.text.TextStyle(shadow = speedShadow),
             )
@@ -331,4 +339,368 @@ private fun PreviewRecording() {
         maxLeftRoll = "24°",
         maxRightRoll = "28°",
     )
+}
+
+// ── 가로모드 전용 컴포저블 및 Autosize Text ───────────────────────────────────────────
+
+@Composable
+fun AutoSizeText(
+    text: String,
+    modifier: Modifier = Modifier,
+    color: Color = Color.Unspecified,
+    fontWeight: FontWeight? = null,
+    textAlign: TextAlign? = null,
+    minFontSize: Float = 48f,
+    maxFontSize: Float = 120f,
+    style: androidx.compose.ui.text.TextStyle = androidx.compose.ui.text.TextStyle.Default,
+) {
+    var fontSizeValue by remember(text) { mutableStateOf(maxFontSize) }
+    var readyToDraw by remember(text) { mutableStateOf(false) }
+
+    Text(
+        text = text,
+        modifier = modifier,
+        color = if (readyToDraw) color else Color.Transparent,
+        fontSize = fontSizeValue.sp,
+        fontWeight = fontWeight,
+        textAlign = textAlign,
+        style = style,
+        maxLines = 1,
+        softWrap = false,
+        onTextLayout = { textLayoutResult ->
+            if (textLayoutResult.hasVisualOverflow) {
+                if (fontSizeValue > minFontSize) {
+                    fontSizeValue = (fontSizeValue - 4f).coerceAtLeast(minFontSize)
+                } else {
+                    readyToDraw = true
+                }
+            } else {
+                readyToDraw = true
+            }
+        },
+    )
+}
+
+@Composable
+fun SpeedometerOnlyCard(
+    speedKmh: String,
+    speedUnit: String,
+    isRecording: Boolean,
+    modifier: Modifier = Modifier,
+    onMarkIssue: (() -> Unit)?,
+) {
+    val speedInt = speedKmh.toIntOrNull() ?: 0
+
+    Box(
+        modifier =
+            modifier
+                .shadow(
+                    elevation = 20.dp,
+                    shape = RoundedCornerShape(24.dp),
+                    ambientColor = Color(0x1A000000),
+                    spotColor = Color(0x1A000000),
+                )
+                .clip(RoundedCornerShape(24.dp))
+                .background(Color(0xFF1E293B))
+                .padding(24.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            AutoSizeText(
+                text = speedInt.toString(),
+                color = SpeedTextColor,
+                minFontSize = 48f,
+                maxFontSize = 120f,
+                fontWeight = FontWeight.Black,
+                textAlign = TextAlign.Center,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = speedUnit,
+                color = Color(0xFF90A1B9),
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.36.sp,
+                textAlign = TextAlign.Center,
+            )
+        }
+
+        if (isRecording && onMarkIssue != null) {
+            SmallFloatingActionButton(
+                onClick = onMarkIssue,
+                containerColor = Color(0xFFFB2C36),
+                contentColor = Color.White,
+                modifier =
+                    Modifier
+                        .align(Alignment.TopCenter),
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Warning,
+                    contentDescription = stringResource(R.string.cd_report_issue),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun LeanAngleLandscapeCard(
+    leanAngle: String,
+    maxLeftRoll: String,
+    maxRightRoll: String,
+    isRecording: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val leanFloat = parseLeanAngle(leanAngle)
+    val clampedLean = leanFloat.coerceIn(-MAX_LEAN_ANGLE, MAX_LEAN_ANGLE)
+
+    val animatedLean by animateFloatAsState(
+        targetValue = clampedLean,
+        animationSpec =
+            spring(
+                dampingRatio = Spring.DampingRatioNoBouncy,
+                stiffness = Spring.StiffnessMedium,
+            ),
+        label = "leanAngle",
+    )
+
+    Box(
+        modifier =
+            modifier
+                .shadow(
+                    elevation = 20.dp,
+                    shape = RoundedCornerShape(24.dp),
+                    ambientColor = Color(0x1A000000),
+                    spotColor = Color(0x1A000000),
+                )
+                .clip(RoundedCornerShape(24.dp))
+                .background(Color(0xFF1E293B))
+                .padding(16.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Row(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 8.dp),
+        ) {
+            LeanGauge(
+                minValue = MIN_LEAN_ANGLE,
+                maxValue = MAX_LEAN_ANGLE,
+                valueProvider = { animatedLean },
+                side = GaugeSide.LEFT,
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .weight(1f),
+                strokeWidth = 12.dp,
+                edgeInset = 12.dp,
+            )
+            LeanGauge(
+                minValue = MIN_LEAN_ANGLE,
+                maxValue = MAX_LEAN_ANGLE,
+                valueProvider = { -animatedLean },
+                side = GaugeSide.RIGHT,
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .weight(1f),
+                strokeWidth = 12.dp,
+                edgeInset = 12.dp,
+            )
+        }
+
+        val direction =
+            when {
+                animatedLean < 0f -> "R"
+                animatedLean > 0f -> "L"
+                else -> ""
+            }
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Text(
+                text = stringResource(R.string.lean_angle),
+                color = SlateSubText,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.0.sp,
+            )
+            Row(
+                verticalAlignment = Alignment.Bottom,
+                horizontalArrangement = Arrangement.Center,
+            ) {
+                if (direction.isNotEmpty()) {
+                    Text(
+                        text = direction,
+                        color = Color.White,
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Black,
+                        modifier = Modifier.alignByBaseline(),
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                }
+                Text(
+                    text = "${abs(animatedLean).toInt()}°",
+                    color = Color.White,
+                    fontSize = 40.sp,
+                    fontWeight = FontWeight.Black,
+                    modifier = Modifier.alignByBaseline(),
+                )
+            }
+        }
+
+        if (isRecording) {
+            Column(
+                modifier =
+                    Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(start = 12.dp, bottom = 12.dp),
+                horizontalAlignment = Alignment.Start,
+            ) {
+                Text(
+                    text = "MAX L",
+                    color = SlateSubText,
+                    fontSize = 8.sp,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    text = maxLeftRoll,
+                    color = Color.White,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Black,
+                )
+            }
+
+            Column(
+                modifier =
+                    Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(end = 12.dp, bottom = 12.dp),
+                horizontalAlignment = Alignment.End,
+            ) {
+                Text(
+                    text = "MAX R",
+                    color = SlateSubText,
+                    fontSize = 8.sp,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    text = maxRightRoll,
+                    color = Color.White,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Black,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun RideStatsLandscapeCard(
+    duration: String,
+    distance: String,
+    speedUnit: String,
+    isRecording: Boolean,
+    isRecordingActive: Boolean,
+    modifier: Modifier = Modifier,
+    onRecordToggle: () -> Unit,
+) {
+    Box(
+        modifier =
+            modifier
+                .shadow(
+                    elevation = 20.dp,
+                    shape = RoundedCornerShape(24.dp),
+                    ambientColor = Color(0x1A000000),
+                    spotColor = Color(0x1A000000),
+                )
+                .clip(RoundedCornerShape(24.dp))
+                .background(Color(0xFF1E293B))
+                .padding(16.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.SpaceBetween,
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = stringResource(R.string.duration).uppercase(Locale.US),
+                        color = SlateSubText,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = duration,
+                        color = Color.White,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Black,
+                    )
+                }
+
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = stringResource(R.string.distance).uppercase(Locale.US),
+                        color = SlateSubText,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "$distance ${if (speedUnit == "MPH") "mi" else "km"}",
+                        color = Color.White,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Black,
+                    )
+                }
+            }
+
+            Button(
+                onClick = onRecordToggle,
+                colors =
+                    ButtonDefaults.buttonColors(
+                        containerColor = if (isRecordingActive) Color(0xFFFB2C36) else NeonGreen,
+                        contentColor = if (isRecordingActive) Color.White else Color.Black,
+                    ),
+                shape = RoundedCornerShape(12.dp),
+                contentPadding = PaddingValues(horizontal = 24.dp, vertical = 8.dp),
+                modifier = Modifier.fillMaxWidth(0.9f),
+            ) {
+                Icon(
+                    painter =
+                        painterResource(
+                            id = if (isRecordingActive) R.drawable.ic_stop else R.drawable.ic_play,
+                        ),
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text =
+                        if (isRecordingActive) {
+                            stringResource(
+                                R.string.record_button_stop,
+                            )
+                        } else {
+                            stringResource(R.string.record_button_start)
+                        },
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Black,
+                )
+            }
+        }
+    }
 }

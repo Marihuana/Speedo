@@ -1,8 +1,11 @@
 package kr.yooreka.speedo.ui.dashboard
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -13,15 +16,19 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kr.yooreka.speedo.data.local.preferences.UserPreferencesRepository
 import kr.yooreka.speedo.data.sensor.lean.LeanDiagnosticLogger
 import kr.yooreka.speedo.domain.model.LeanConfidence
+import kr.yooreka.speedo.domain.model.LocationData
 import kr.yooreka.speedo.domain.repository.BillingRepository
+import kr.yooreka.speedo.domain.repository.SensorRepository
 import kr.yooreka.speedo.domain.repository.TelemetryRepository
 import kr.yooreka.speedo.domain.usecase.GetDashboardTelemetryUseCase
 import kr.yooreka.speedo.utils.displaySpeedInt
 import kr.yooreka.speedo.utils.formatLeanAngle
+import java.util.Locale
 import javax.inject.Inject
 
 sealed class DashBoardUiEvent {
@@ -39,9 +46,42 @@ class DashBoardViewModel
         private val telemetryRepository: TelemetryRepository,
         private val billingRepository: BillingRepository,
         private val leanDiagnosticLogger: LeanDiagnosticLogger,
+        private val locationRepo: SensorRepository<LocationData>,
+        private val savedStateHandle: SavedStateHandle,
     ) : ViewModel() {
         private val _uiEvent = MutableSharedFlow<DashBoardUiEvent>()
         val uiEvent = _uiEvent.asSharedFlow()
+
+        private val keyStartTime = "start_time"
+        private val keyLastLat = "last_lat"
+        private val keyLastLng = "last_lng"
+        private val keyAccumDistance = "accum_distance"
+
+        private var startTimestamp: Long
+            get() = savedStateHandle[keyStartTime] ?: 0L
+            set(value) {
+                savedStateHandle[keyStartTime] = value
+            }
+
+        private var lastLocation: Pair<Double, Double>?
+            get() {
+                val lat: Double = savedStateHandle[keyLastLat] ?: return null
+                val lng: Double = savedStateHandle[keyLastLng] ?: return null
+                return lat to lng
+            }
+            set(value) {
+                savedStateHandle[keyLastLat] = value?.first
+                savedStateHandle[keyLastLng] = value?.second
+            }
+
+        private var accumDistance: Double
+            get() = savedStateHandle[keyAccumDistance] ?: 0.0
+            set(value) {
+                savedStateHandle[keyAccumDistance] = value
+            }
+
+        private val rideDurationFlow = MutableStateFlow("00:00:00")
+        private val rideDistanceFlow = MutableStateFlow("0.0")
 
         // 세션 최대 기울기(F: MAX L/R). 부호 규약: 양수=좌(L), 음수=우(R).
         // 기록 중에만 누적하고 기록 시작 시 0 으로 초기화한다.
@@ -71,6 +111,69 @@ class DashBoardViewModel
                     }
                 }
             }
+
+            // 화면 회전 시에도 경과시간/누적거리 계산 복원 및 유지
+            viewModelScope.launch {
+                telemetryRepository.isRecording.collectLatest { recording ->
+                    if (recording) {
+                        if (startTimestamp == 0L) {
+                            startTimestamp = System.currentTimeMillis()
+                            accumDistance = 0.0
+                            lastLocation = null
+                        }
+                        rideDistanceFlow.value = String.format(Locale.US, "%.1f", accumDistance)
+
+                        // coroutineScope 블록을 활용하여 수집 취소 시 하위 코루틴들의 좀비 코루틴 누수 방지
+                        coroutineScope {
+                            // 1초 단위 타이머 루프
+                            launch {
+                                while (isActive) {
+                                    val elapsedMs = System.currentTimeMillis() - startTimestamp
+                                    val hours = elapsedMs / 3600000
+                                    val minutes = (elapsedMs % 3600000) / 60000
+                                    val seconds = (elapsedMs % 60000) / 1000
+                                    rideDurationFlow.value = String.format(Locale.US, "%02d:%02d:%02d", hours, minutes, seconds)
+                                    delay(1000L)
+                                }
+                            }
+
+                            // GPS 누적 거리 루프 (F-06 정책: Accuracy <= 25m, Move >= 2m)
+                            launch {
+                                locationRepo.dataStream.collect { locationData ->
+                                    if (locationData.latitude == 0.0 && locationData.longitude == 0.0) return@collect
+                                    if (locationData.accuracy > 25f) return@collect
+
+                                    val last = lastLocation
+                                    if (last == null) {
+                                        lastLocation = locationData.latitude to locationData.longitude
+                                    } else {
+                                        val results = FloatArray(1)
+                                        android.location.Location.distanceBetween(
+                                            last.first,
+                                            last.second,
+                                            locationData.latitude,
+                                            locationData.longitude,
+                                            results,
+                                        )
+                                        val distMeters = results[0]
+                                        if (distMeters >= 2f) {
+                                            accumDistance += (distMeters / 1000.0)
+                                            rideDistanceFlow.value = String.format(Locale.US, "%.1f", accumDistance)
+                                            lastLocation = locationData.latitude to locationData.longitude
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        startTimestamp = 0L
+                        accumDistance = 0.0
+                        lastLocation = null
+                        rideDurationFlow.value = "00:00:00"
+                        rideDistanceFlow.value = "0.0"
+                    }
+                }
+            }
         }
 
         @OptIn(kotlinx.coroutines.FlowPreview::class)
@@ -81,7 +184,19 @@ class DashBoardViewModel
                 userPreferencesRepository.userPreferencesFlow,
                 telemetryRepository.autoStopSuggested,
                 maxRollFlow,
-            ) { data, recording, prefs, autoStop, maxRoll ->
+                rideDurationFlow,
+                rideDistanceFlow,
+            ) { array ->
+                val data = array[0] as kr.yooreka.speedo.domain.model.RideTelemetry
+                val recording = array[1] as Boolean
+                val prefs = array[2] as kr.yooreka.speedo.data.local.preferences.UserPreferences
+                val autoStop = array[3] as Boolean
+
+                @Suppress("UNCHECKED_CAST")
+                val maxRoll = array[4] as Pair<Float, Float>
+                val duration = array[5] as String
+                val distance = array[6] as String
+
                 // 속도 단위 변환(F-02): 오버레이와 동일한 공용 변환점을 사용한다.
                 val displaySpeed = displaySpeedInt(data.speed, prefs.speedUnit)
 
@@ -95,6 +210,8 @@ class DashBoardViewModel
                     autoStopSuggested = autoStop,
                     maxLeftRoll = formatLeanAngle(maxRoll.first),
                     maxRightRoll = formatLeanAngle(maxRoll.second),
+                    rideDuration = duration,
+                    rideDistance = distance,
                 )
             }
                 .stateIn(
