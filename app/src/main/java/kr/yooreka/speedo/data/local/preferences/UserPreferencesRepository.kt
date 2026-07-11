@@ -5,10 +5,12 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
@@ -57,6 +59,7 @@ class UserPreferencesRepository
             val OVERLAY_SIZE = stringPreferencesKey("overlay_size")
             val OVERLAY_OPACITY = intPreferencesKey("overlay_opacity")
             val IS_FIRST_LAUNCH = booleanPreferencesKey("is_first_launch")
+            val LEAN_OFFSET_DEGREES = floatPreferencesKey("lean_offset_degrees")
         }
 
         val userPreferencesFlow: Flow<UserPreferences> =
@@ -112,6 +115,18 @@ class UserPreferencesRepository
         val autoStopThresholdFlow: Flow<Int> =
             context.dataStore.data
                 .map { it[PreferencesKeys.AUTO_STOP_THRESHOLD] ?: DEFAULT_AUTO_STOP_MIN }
+
+        /**
+         * 기울기 영점 보정값(도, F-04). 프로세스 킬에 대비해 영속화하며,
+         * 사용자가 수동 초기화(reset)하기 전까지 보존한다. 값 없음/IO 에러 시 0f.
+         */
+        val leanOffsetDegreesFlow: Flow<Float> =
+            context.dataStore.data
+                .map { it[PreferencesKeys.LEAN_OFFSET_DEGREES] ?: DEFAULT_LEAN_OFFSET_DEGREES }
+                .catch { e ->
+                    crashReporter.recordNonFatal(e, "leanOffset read failed; falling back to 0f")
+                    emit(DEFAULT_LEAN_OFFSET_DEGREES)
+                }
 
         /** 플로팅 오버레이 위젯 설정(F-19a/F-19b). */
         val overlaySettingsFlow: Flow<OverlaySettings> =
@@ -224,9 +239,28 @@ class UserPreferencesRepository
             }
         }
 
+        /**
+         * 기울기 영점 보정값(도) 저장/클리어(F-04). reset 시 0f 를 전달해 초기화한다.
+         * IO 에러 시 앱을 죽이지 않고 non-fatal 로 기록한다(PRD §4.6).
+         */
+        suspend fun updateLeanOffset(offsetDegrees: Float) {
+            try {
+                context.dataStore.edit { preferences ->
+                    preferences[PreferencesKeys.LEAN_OFFSET_DEGREES] = offsetDegrees
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                crashReporter.recordNonFatal(e, "updateLeanOffset persistence failed")
+            }
+        }
+
         companion object {
             /** 주행 종료 예상 감지 기본 임계값(분). */
             const val DEFAULT_AUTO_STOP_MIN = 5
+
+            /** 기울기 영점 보정 기본값(도). */
+            const val DEFAULT_LEAN_OFFSET_DEGREES = 0f
 
             /** 오버레이 기본 투명도(%). */
             const val DEFAULT_OVERLAY_OPACITY = 100
