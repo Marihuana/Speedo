@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -16,6 +15,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -43,11 +45,8 @@ import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.flow.SharedFlow
 import kr.yooreka.speedo.R
 import kr.yooreka.speedo.ui.dashboard.components.AutoStopDialog
-import kr.yooreka.speedo.ui.dashboard.components.LeanAngleLandscapeCard
 import kr.yooreka.speedo.ui.dashboard.components.RecordingStartDialog
-import kr.yooreka.speedo.ui.dashboard.components.RideStatsLandscapeCard
 import kr.yooreka.speedo.ui.dashboard.components.SpeedometerCard
-import kr.yooreka.speedo.ui.dashboard.components.SpeedometerOnlyCard
 import kr.yooreka.speedo.ui.dashboard.components.TPMSCard
 import kr.yooreka.speedo.ui.theme.BackgroundBlack
 import kr.yooreka.speedo.ui.theme.GreenSuccess
@@ -88,58 +87,60 @@ fun DashBoardScreen(
         val isLandscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
 
         if (isLandscape) {
-            Row(
+            Box(
                 modifier =
                     Modifier
                         .fillMaxSize()
                         .background(BackgroundBlack)
                         .padding(16.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                // 가로모드 좌측 (6): 스피드미터 전용 카드
-                Box(
-                    modifier =
-                        Modifier
-                            .weight(1.2f)
-                            .fillMaxHeight(),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    SpeedometerOnlyCard(
-                        speedKmh = state.speed,
-                        speedUnit = state.speedUnit,
-                        isRecording = state.isRecording,
-                        brakeEvent = state.brakeEvent,
-                        onMarkIssue = {
-                            onMarkIssue()
-                            Toast.makeText(context, issueMarkedMessage, Toast.LENGTH_SHORT).show()
-                        },
-                        modifier = Modifier.fillMaxSize(),
-                    )
-                }
+                // 가로모드(시안 Image #3): 세로용 스피드미터 카드를 단일 카드로 채운다.
+                // 아크("( )") + 속도 + LEAN ANGLE + MAX L/R 를 그대로 렌더한다.
+                SpeedometerCard(
+                    speedKmh = state.speed,
+                    leanAngle = state.roll,
+                    speedUnit = state.speedUnit,
+                    isRecording = state.isRecording,
+                    maxLeftRoll = state.maxLeftRoll,
+                    maxRightRoll = state.maxRightRoll,
+                    brakeEvent = state.brakeEvent,
+                    onMarkIssue = {
+                        onMarkIssue()
+                        Toast.makeText(context, issueMarkedMessage, Toast.LENGTH_SHORT).show()
+                    },
+                    modifier = Modifier.fillMaxSize(),
+                )
 
-                // 가로모드 우측 (4): 뱅킹각(게이지 포함) 및 주행 정보 통계 카드
-                Column(
+                // 우상단 기록/정지 버튼(시안: "▶ 기록" 그린 필)
+                Button(
+                    onClick = onRecordToggle,
+                    colors =
+                        ButtonDefaults.buttonColors(
+                            containerColor = NeonGreen,
+                            contentColor = BackgroundBlack,
+                        ),
+                    shape = RoundedCornerShape(16.dp),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
                     modifier =
                         Modifier
-                            .weight(0.8f)
-                            .fillMaxHeight(),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                            .align(Alignment.TopEnd)
+                            .padding(top = 20.dp, end = 20.dp),
                 ) {
-                    LeanAngleLandscapeCard(
-                        leanAngle = state.roll,
-                        maxLeftRoll = state.maxLeftRoll,
-                        maxRightRoll = state.maxRightRoll,
-                        isRecording = state.isRecording,
-                        modifier = Modifier.weight(1.2f),
+                    Icon(
+                        imageVector = if (state.isRecording) Icons.Filled.Stop else Icons.Filled.PlayArrow,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
                     )
-                    RideStatsLandscapeCard(
-                        duration = state.rideDuration,
-                        distance = state.rideDistance,
-                        speedUnit = state.speedUnit,
-                        isRecording = state.isRecording,
-                        isRecordingActive = state.isRecording,
-                        onRecordToggle = onRecordToggle,
-                        modifier = Modifier.weight(0.8f),
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text =
+                            if (state.isRecording) {
+                                stringResource(R.string.record_button_stop)
+                            } else {
+                                stringResource(R.string.record_button_start)
+                            },
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Black,
                     )
                 }
             }
@@ -374,6 +375,24 @@ fun DashBoardScreenRecordingNoTpmsPreview() {
                     showTpmsData = false,
                     maxLeftRoll = "28°",
                     maxRightRoll = "32°",
+                ),
+            uiEvent = kotlinx.coroutines.flow.MutableSharedFlow(),
+        )
+    }
+}
+
+@Preview(showBackground = true, name = "Dashboard - Landscape", widthDp = 852, heightDp = 393)
+@Composable
+fun DashBoardScreenLandscapePreview() {
+    SpeedoTheme {
+        DashBoardScreen(
+            state =
+                DashBoardState(
+                    speed = "59",
+                    roll = "22°",
+                    isRecording = true,
+                    maxLeftRoll = "0",
+                    maxRightRoll = "0",
                 ),
             uiEvent = kotlinx.coroutines.flow.MutableSharedFlow(),
         )
