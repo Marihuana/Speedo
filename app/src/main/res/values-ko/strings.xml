@@ -139,6 +139,15 @@
     <string name="donation_title">개발자에게 오토바이 사주기</string>
     <string name="donation_desc">Speedo가 마음에 드셨다면 개발자에게 후원해 주세요.</string>
     <string name="donation_button">후원하기 · %1$s</string>
+    <!-- 개발자 오토바이 사주기 이스터에그 2중 컨펌(F-24). 금액은 하드코딩 대신 리소스로 관리. -->
+    <string name="donation_amount">600,000원</string>
+    <string name="donation_button_easter_egg">개발자에게 오토바이 사주기 (%1$s)</string>
+    <string name="donation_confirm_first_message">진짜 사주시는 건가요? %1$s이 구글 플레이 인앱 결제(IAP)로 청구됩니다.</string>
+    <string name="donation_confirm_first_confirm">확인</string>
+    <string name="donation_confirm_first_dismiss">역시 장난입니다</string>
+    <string name="donation_confirm_second_message">잠깐, 농담이 아니라 진짜 진심으로 사주시는 건가요? 결제된 금액은 개발자의 오토바이 구매 비용으로 소중히 사용됩니다.</string>
+    <string name="donation_confirm_second_confirm">진짜 결제할래요</string>
+    <string name="donation_confirm_second_dismiss">취소</string>
 
     <!-- Dialogs -->
     <string name="dialog_connect_title">센서 연결</string>

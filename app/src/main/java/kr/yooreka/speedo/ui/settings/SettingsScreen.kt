@@ -275,15 +275,6 @@ fun SettingsContent(
                 )
             }
 
-            // 개발자 후원(오토바이 사주기): 상품이 조회된 경우에만 노출.
-            if (donationProduct != null) {
-                Spacer(modifier = Modifier.height(16.dp))
-                DonationCard(
-                    product = donationProduct,
-                    onDonateClick = onDonateClick,
-                )
-            }
-
             Spacer(modifier = Modifier.height(32.dp))
 
             // Version Info
@@ -319,6 +310,13 @@ fun SettingsContent(
                     textAlign = TextAlign.Center,
                 )
             }
+
+            // 개발자 오토바이 사주기 이스터에그(F-24): 버전 정보 칩 아래 최하단에 배치.
+            // 상품이 조회된 경우에만 노출한다.
+            if (donationProduct != null) {
+                DonationCard(onDonateClick = onDonateClick)
+                Spacer(modifier = Modifier.height(24.dp))
+            }
         }
 
         if (!isAdRemoved) {
@@ -328,13 +326,46 @@ fun SettingsContent(
     }
 }
 
-/** 개발자 후원(오토바이 사주기) 카드. 일회성 인앱 결제 상품이 조회된 경우에만 노출. */
+/** 개발자 후원(오토바이 사주기) 2중 컨펌 플로우 단계(F-24). */
+private enum class DonationConfirmStage { NONE, FIRST, SECOND }
+
+/**
+ * 개발자 후원(오토바이 사주기) 카드(F-24). 일회성 인앱 결제 상품이 조회된 경우에만 노출.
+ * 버튼 클릭 시 즉시 결제하지 않고 1차·2차 컨펌 다이얼로그를 거친 뒤에만 [onDonateClick](실제 IAP)을 호출한다.
+ */
 @Composable
 fun DonationCard(
-    product: DonationProduct,
     onDonateClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // 다이얼로그 표시 단계는 카드 로컬 UI 상태(드롭다운 expanded 등과 동일한 성격)로 관리한다.
+    var confirmStage by remember { mutableStateOf(DonationConfirmStage.NONE) }
+    val amount = stringResource(R.string.donation_amount)
+
+    when (confirmStage) {
+        DonationConfirmStage.NONE -> Unit
+        DonationConfirmStage.FIRST ->
+            DonationConfirmDialog(
+                message = stringResource(R.string.donation_confirm_first_message, amount),
+                confirmText = stringResource(R.string.donation_confirm_first_confirm),
+                dismissText = stringResource(R.string.donation_confirm_first_dismiss),
+                onConfirm = { confirmStage = DonationConfirmStage.SECOND },
+                onDismiss = { confirmStage = DonationConfirmStage.NONE },
+            )
+        DonationConfirmStage.SECOND ->
+            DonationConfirmDialog(
+                message = stringResource(R.string.donation_confirm_second_message),
+                confirmText = stringResource(R.string.donation_confirm_second_confirm),
+                dismissText = stringResource(R.string.donation_confirm_second_dismiss),
+                onConfirm = {
+                    confirmStage = DonationConfirmStage.NONE
+                    // 2차 컨펌까지 통과한 경우에만 실제 결제(donate→launchDonation) 경로를 호출한다.
+                    onDonateClick()
+                },
+                onDismiss = { confirmStage = DonationConfirmStage.NONE },
+            )
+    }
+
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
@@ -378,7 +409,8 @@ fun DonationCard(
                 }
                 Spacer(modifier = Modifier.height(20.dp))
                 Button(
-                    onClick = onDonateClick,
+                    // 즉시 결제 대신 2중 컨펌 플로우의 1단계를 연다.
+                    onClick = { confirmStage = DonationConfirmStage.FIRST },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
                     colors =
@@ -389,7 +421,7 @@ fun DonationCard(
                     contentPadding = PaddingValues(vertical = 14.dp),
                 ) {
                     Text(
-                        text = stringResource(R.string.donation_button, product.formattedPrice),
+                        text = stringResource(R.string.donation_button_easter_egg, amount),
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Black,
                         letterSpacing = (-0.3).sp,
@@ -1091,6 +1123,47 @@ private fun <T> OverlayOptionSelector(
             }
         }
     }
+}
+
+/**
+ * 개발자 후원(오토바이 사주기) 컨펌 다이얼로그(F-24).
+ * 1차/2차 공용으로 쓰이며, 확인/취소 문구와 콜백만 주입받는다.
+ */
+@Composable
+private fun DonationConfirmDialog(
+    message: String,
+    confirmText: String,
+    dismissText: String,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = SlateDark,
+        title = {
+            Text(
+                text = stringResource(R.string.donation_title),
+                color = Color.White,
+                fontWeight = FontWeight.Black,
+            )
+        },
+        text = {
+            Text(
+                text = message,
+                color = SlateText,
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text(text = confirmText, color = NeonGreen)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(text = dismissText, color = SlateText)
+            }
+        },
+    )
 }
 
 /** 오버레이 권한 안내 다이얼로그(§4.4). 확인 시 시스템 오버레이 권한 설정으로 이동한다. */

@@ -140,6 +140,15 @@
     <string name="donation_title">Buy the developer a motorcycle</string>
     <string name="donation_desc">Enjoying Speedo? Support the developer with a small tip.</string>
     <string name="donation_button">Support · %1$s</string>
+    <!-- Developer motorcycle easter egg double-confirm (F-24). Amount kept as a resource, not hardcoded. -->
+    <string name="donation_amount">₩600,000</string>
+    <string name="donation_button_easter_egg">Buy the developer a motorcycle (%1$s)</string>
+    <string name="donation_confirm_first_message">Are you really buying it? %1$s will be charged via Google Play in-app purchase (IAP).</string>
+    <string name="donation_confirm_first_confirm">OK</string>
+    <string name="donation_confirm_first_dismiss">Just kidding</string>
+    <string name="donation_confirm_second_message">Wait, no joke, are you truly, sincerely buying it? The amount will be used with care toward the developer\'s motorcycle.</string>
+    <string name="donation_confirm_second_confirm">Yes, charge me for real</string>
+    <string name="donation_confirm_second_dismiss">Cancel</string>
 
     <!-- Dialogs -->
     <string name="dialog_connect_title">Sensor Connection</string>
