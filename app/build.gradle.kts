@@ -69,6 +69,12 @@ android {
     }
 
     buildTypes {
+        debug {
+            // Crashlytics 변형 분리: debug 는 별도 Firebase 앱(kr.yooreka.speedo.debug)으로 크래시를 보고한다.
+            // google-services.json 에 해당 클라이언트가 등록되어 있어야 한다.
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
+        }
         release {
             // R8 코드 축소·난독화 및 미사용 리소스 제거(PRD Open Items [v1.0] #2).
             isMinifyEnabled = true
