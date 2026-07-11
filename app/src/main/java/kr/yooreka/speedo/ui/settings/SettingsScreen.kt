@@ -716,11 +716,12 @@ private fun RowScope.PlanSelectorCard(
     val borderColor = if (isSelected) PremiumGold else Color(0xFF3A3A3A)
     val nameColor = if (isSelected) PremiumGold else SlateText
     Box(
-        // 뱃지가 상단 경계에 걸치므로(offset y -9dp) 그만큼 상단 여유를 확보해 클리핑을 막는다.
+        // 뱃지를 카드 상단 경계 위로 올려(offset y -16dp) 플랜명과 겹치지 않게 한다.
+        // 그만큼 상단 여유(top 16dp)를 확보해 클리핑을 막는다.
         modifier =
             Modifier
                 .weight(1f)
-                .padding(top = 10.dp),
+                .padding(top = 16.dp),
     ) {
         Column(
             modifier =
@@ -776,7 +777,7 @@ private fun RowScope.PlanSelectorCard(
                 modifier =
                     Modifier
                         .align(Alignment.TopStart)
-                        .offset(x = 12.dp, y = (-9).dp)
+                        .offset(x = 12.dp, y = (-16).dp)
                         .background(PremiumGold, RoundedCornerShape(50))
                         .padding(horizontal = 8.dp, vertical = 3.dp),
             ) {

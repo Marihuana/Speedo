@@ -101,7 +101,7 @@
     <string name="coupon_dialog_title">쿠폰 코드 입력</string>
     <string name="coupon_dialog_subtitle">광고 제거 무료 이용권</string>
     <string name="coupon_input_hint">쿠폰 코드를 입력하세요</string>
-    <string name="coupon_input_helper">대소문자 구분 없이 입력하세요 (예: EVERYBARI3)</string>
+    <string name="coupon_input_helper">대소문자 구분 없이 입력하세요.\n(예: EVERYBARI3)</string>
     <string name="coupon_submit">쿠폰 등록하기</string>
     <string name="cd_coupon_icon">쿠폰</string>
     <string name="cd_close">닫기</string>

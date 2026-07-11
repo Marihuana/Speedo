@@ -102,7 +102,7 @@
     <string name="coupon_dialog_title">Enter Coupon Code</string>
     <string name="coupon_dialog_subtitle">Free ad-removal pass</string>
     <string name="coupon_input_hint">Enter coupon code</string>
-    <string name="coupon_input_helper">Case-insensitive (e.g. EVERYBARI3)</string>
+    <string name="coupon_input_helper">Case-insensitive.\n(e.g. EVERYBARI3)</string>
     <string name="coupon_submit">Redeem coupon</string>
     <string name="cd_coupon_icon">Coupon</string>
     <string name="cd_close">Close</string>
