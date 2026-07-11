@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -64,84 +63,82 @@ fun OverlaySpeedLeanWidget(
     Column(
         modifier =
             modifier
-                .size(width = 340.dp, height = 160.dp)
-                .clip(RoundedCornerShape(32.dp))
+                .width(320.dp)
+                .clip(RoundedCornerShape(28.dp))
                 .background(SlateDark)
                 .border(
                     width = 1.dp,
                     color = Color(0xFF314158).copy(alpha = 0.5f),
-                    shape = RoundedCornerShape(32.dp),
+                    shape = RoundedCornerShape(28.dp),
                 )
-                .padding(20.dp),
-        verticalArrangement = Arrangement.SpaceBetween,
+                .padding(horizontal = 22.dp, vertical = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
-        // 1. 상단 행 (Top Row)
+        // 1. 상단 행: 브랜드 + 급제동 뱃지
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // 좌측 서비스 타이틀
             Text(
                 text = stringResource(R.string.overlay_widget_brand),
                 color = NeonGreen,
-                fontSize = 10.sp,
+                fontSize = 16.sp,
                 fontWeight = FontWeight.Black,
+                letterSpacing = 0.5.sp,
             )
 
-            // 우측 급브레이크 경고 배지
+            // 급제동 경고 뱃지(시안: 차분한 마룬 필).
             if (isHardBrake) {
                 Box(
                     modifier =
                         Modifier
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(Color(0xFFFB2C36))
-                            .padding(horizontal = 8.dp, vertical = 2.dp),
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color(0xFF9E4A44))
+                            .padding(horizontal = 12.dp, vertical = 5.dp),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
                         text = stringResource(R.string.overlay_hard_brake),
                         color = Color.White,
-                        fontSize = 9.sp,
+                        fontSize = 11.sp,
                         fontWeight = FontWeight.Black,
+                        letterSpacing = 0.5.sp,
                     )
                 }
             }
         }
 
-        // 2. 하단 수치 행 (Content Row)
+        // 2. 하단 행: SPEED | (세로 구분선) | LEAN ANGLE
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
+            verticalAlignment = Alignment.Bottom,
         ) {
             // 좌측 속도 영역
-            Column(
-                horizontalAlignment = Alignment.Start,
-            ) {
+            Column(horizontalAlignment = Alignment.Start) {
                 Text(
                     text = stringResource(R.string.overlay_widget_speed),
                     color = SlateSubText,
-                    fontSize = 10.sp,
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp,
                 )
                 Spacer(modifier = Modifier.height(4.dp))
-                Row(
-                    verticalAlignment = Alignment.Bottom,
-                ) {
+                Row(verticalAlignment = Alignment.Bottom) {
                     Text(
                         text = speedValue,
                         color = Color.White,
-                        fontSize = 48.sp,
+                        fontSize = 60.sp,
                         fontWeight = FontWeight.Black,
-                        letterSpacing = (-2).sp,
+                        letterSpacing = (-3).sp,
                         modifier = Modifier.alignBy(FirstBaseline),
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
+                    Spacer(modifier = Modifier.width(3.dp))
                     Text(
                         text = speedUnit,
                         color = SlateText,
-                        fontSize = 10.sp,
+                        fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.alignBy(FirstBaseline),
                     )
@@ -152,19 +149,19 @@ fun OverlaySpeedLeanWidget(
             Box(
                 modifier =
                     Modifier
-                        .size(width = 1.dp, height = 64.dp)
+                        .width(1.dp)
+                        .height(72.dp)
                         .background(Color(0xFF314158)),
             )
 
             // 우측 뱅킹각 영역
-            Column(
-                horizontalAlignment = Alignment.End,
-            ) {
+            Column(horizontalAlignment = Alignment.End) {
                 Text(
                     text = stringResource(R.string.overlay_widget_lean_angle),
                     color = SlateSubText,
-                    fontSize = 10.sp,
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp,
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Row(
@@ -176,7 +173,7 @@ fun OverlaySpeedLeanWidget(
                         Text(
                             text = direction,
                             color = NeonGreen,
-                            fontSize = 20.sp,
+                            fontSize = 28.sp,
                             fontWeight = FontWeight.Black,
                             modifier =
                                 Modifier
@@ -188,26 +185,23 @@ fun OverlaySpeedLeanWidget(
                         Spacer(
                             modifier =
                                 Modifier
-                                    .width(20.dp)
+                                    .width(24.dp)
                                     .alignBy(FirstBaseline),
                         )
                     }
 
-                    // 뱅킹각 숫자
                     Text(
                         text = leanInt.toString(),
                         color = Color.White,
-                        fontSize = 36.sp,
+                        fontSize = 48.sp,
                         fontWeight = FontWeight.Black,
-                        letterSpacing = (-1.4).sp,
+                        letterSpacing = (-2).sp,
                         modifier = Modifier.alignBy(FirstBaseline),
                     )
-
-                    // 도 기호
                     Text(
                         text = "°",
                         color = Color.White,
-                        fontSize = 20.sp,
+                        fontSize = 28.sp,
                         fontWeight = FontWeight.Black,
                         modifier = Modifier.alignBy(FirstBaseline),
                     )
