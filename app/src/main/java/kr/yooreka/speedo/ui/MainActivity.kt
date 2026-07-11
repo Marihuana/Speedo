@@ -45,9 +45,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavController
 import androidx.navigation.NavType
@@ -56,6 +58,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kr.yooreka.speedo.R
 import kr.yooreka.speedo.data.local.preferences.UserPreferencesRepository
@@ -70,6 +73,7 @@ import kr.yooreka.speedo.ui.theme.BackgroundBlack
 import kr.yooreka.speedo.ui.theme.NeonGreen
 import kr.yooreka.speedo.ui.theme.SpeedoTheme
 import kr.yooreka.speedo.utils.AdManager
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -77,8 +81,24 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var adManager: AdManager
 
+    @Inject
+    lateinit var userPreferencesRepository: UserPreferencesRepository
+
     override fun onCreate(savedInstanceState: Bundle?) {
+        // 콜드스타트 시스템 스플래시(F-25, §4.6, AC-06). super.onCreate 직전에 설치해야 한다.
+        val splashScreen = installSplashScreen()
         super.onCreate(savedInstanceState)
+
+        // is_first_launch(및 관련 prefs) 리딩이 끝날 때까지 시스템 스플래시를 유지해,
+        // 시작 목적지가 확정되기 전에 메인 화면이 노출되는 Visual Leak/Jank 를 원천 차단한다.
+        // userPreferencesFlow 는 IO 에러 시 .catch 로 메모리 캐시(fallback)를 즉시 emit 하므로
+        // 조건이 무한정 유지되지 않으며, AC-06(최초 1회만 노출)을 만족한다.
+        val prefsReady = AtomicBoolean(false)
+        splashScreen.setKeepOnScreenCondition { !prefsReady.get() }
+        lifecycleScope.launch {
+            userPreferencesRepository.userPreferencesFlow.first()
+            prefsReady.set(true)
+        }
 
         adManager.loadInterstitialAd()
 

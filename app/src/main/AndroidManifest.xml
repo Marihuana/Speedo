@@ -64,7 +64,7 @@
             android:exported="true"
             android:label="@string/app_name"
             android:launchMode="singleTop"
-            android:theme="@style/Theme.Speedo">
+            android:theme="@style/Theme.Speedo.Starting">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
