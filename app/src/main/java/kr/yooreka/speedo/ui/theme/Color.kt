@@ -20,3 +20,6 @@ val WarningYellow = Color(0xFFFACC15)
 val WarningOrange = Color(0xFFF97316)
 val DangerRed = Color(0xFFEF4444)
 val BackgroundBlack = Color(0xFF000000)
+
+// 구독(Premium) 카드 포인트 컬러: 보더/버튼/뱃지/선택 강조에 사용.
+val PremiumGold = Color(0xFFF5C518)

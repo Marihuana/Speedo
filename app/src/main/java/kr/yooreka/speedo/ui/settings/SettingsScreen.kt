@@ -1,5 +1,6 @@
 package kr.yooreka.speedo.ui.settings
 
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -20,10 +21,12 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -33,6 +36,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ConfirmationNumber
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material3.AlertDialog
@@ -44,6 +49,9 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
@@ -65,9 +73,11 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kr.yooreka.speedo.R
@@ -80,6 +90,7 @@ import kr.yooreka.speedo.domain.model.SubscriptionPlan
 import kr.yooreka.speedo.ui.components.BannerAd
 import kr.yooreka.speedo.ui.theme.BackgroundBlack
 import kr.yooreka.speedo.ui.theme.NeonGreen
+import kr.yooreka.speedo.ui.theme.PremiumGold
 import kr.yooreka.speedo.ui.theme.SlateDark
 import kr.yooreka.speedo.ui.theme.SlateSubText
 import kr.yooreka.speedo.ui.theme.SlateText
@@ -488,124 +499,465 @@ fun PremiumActiveCard(modifier: Modifier = Modifier) {
     }
 }
 
+/**
+ * 광고 제거 구독 카드(F-27). 골드 테마 2플랜(연간/월간) 셀렉터 + CTA + 쿠폰 리딤 링크.
+ * 선택 상태(연간/월간)는 카드 로컬 UI 상태로 관리하고, 할인율·월환산 금액은 Play Store 가격에서 파생한다.
+ */
 @Composable
 fun PremiumCard(
     plans: List<SubscriptionPlan>,
     onPurchasePlan: (SubscriptionPlan) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    Box(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                // Linear gradient is complex to compose directly without shape, using a simpler approach or Brush
-                .background(
-                    Color.Transparent,
-                ),
-    ) {
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-            border = BorderStroke(0.6.dp, Color(0xFFFE9A00).copy(alpha = 0.2f)),
-        ) {
-            Box(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .background(
-                            androidx.compose.ui.graphics.Brush.linearGradient(
-                                colors =
-                                    listOf(
-                                        Color(0xFFFE9A00).copy(alpha = 0.1f),
-                                        Color.Transparent,
-                                    ),
-                            ),
-                        ),
-            ) {
-                Column(modifier = Modifier.padding(24.dp)) {
-                    Text(
-                        text = stringResource(R.string.premium_version),
-                        color = Color(0xFFFFB900),
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Black,
-                        letterSpacing = (-0.71).sp,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = stringResource(R.string.premium_desc),
-                        color = SlateText,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.12.sp,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    Spacer(modifier = Modifier.height(20.dp))
+    val yearlyPlan = remember(plans) { plans.firstOrNull { it.type == SubscriptionPlan.PlanType.YEARLY } }
+    val monthlyPlan = remember(plans) { plans.firstOrNull { it.type == SubscriptionPlan.PlanType.MONTHLY } }
 
-                    if (plans.isEmpty()) {
-                        // 상품 조회 전/실패 시: 로딩 안내만 노출(결제 버튼 미노출).
-                        Text(
-                            text = stringResource(R.string.premium_loading),
-                            color = SlateText,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                    } else {
-                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            plans.forEach { plan ->
-                                SubscriptionPlanButton(
-                                    plan = plan,
-                                    onClick = { onPurchasePlan(plan) },
-                                )
-                            }
+    // 기본 선택: 연간 우선, 없으면 월간. plans가 갱신되면 재계산.
+    var selectedType by remember(plans) {
+        mutableStateOf(
+            if (yearlyPlan != null) SubscriptionPlan.PlanType.YEARLY else SubscriptionPlan.PlanType.MONTHLY,
+        )
+    }
+    var showCouponDialog by remember { mutableStateOf(false) }
+
+    val selectedPlan =
+        when (selectedType) {
+            SubscriptionPlan.PlanType.YEARLY -> yearlyPlan ?: monthlyPlan
+            SubscriptionPlan.PlanType.MONTHLY -> monthlyPlan ?: yearlyPlan
+        }
+
+    // 월/연 둘 다 존재하고 할인율 > 0 일 때만 뱃지·월환산을 노출한다(Play 금액에서 파생).
+    val savingPercent =
+        remember(yearlyPlan, monthlyPlan) {
+            val yearly = yearlyPlan ?: return@remember null
+            val monthly = monthlyPlan ?: return@remember null
+            if (yearly.priceAmountMicros <= 0L || monthly.priceAmountMicros <= 0L) return@remember null
+            val percent =
+                Math.round(
+                    (1.0 - yearly.priceAmountMicros.toDouble() / (monthly.priceAmountMicros * 12)) * 100,
+                ).toInt()
+            percent.takeIf { it > 0 }
+        }
+    val savingBadgeText = savingPercent?.let { stringResource(R.string.premium_yearly_saving, it) }
+    val yearlyNoteText =
+        if (savingPercent != null && yearlyPlan != null) {
+            formatCurrency(yearlyPlan.priceAmountMicros / 12, yearlyPlan.priceCurrencyCode)
+                ?.let { stringResource(R.string.premium_yearly_note, it) }
+        } else {
+            null
+        }
+    val monthlyNoteText = stringResource(R.string.premium_monthly_note)
+
+    if (showCouponDialog) {
+        CouponDialog(onDismiss = { showCouponDialog = false })
+    }
+
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF14110A)),
+        border = BorderStroke(0.8.dp, PremiumGold.copy(alpha = 0.35f)),
+    ) {
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .background(
+                        androidx.compose.ui.graphics.Brush.linearGradient(
+                            colors =
+                                listOf(
+                                    PremiumGold.copy(alpha = 0.1f),
+                                    Color.Transparent,
+                                ),
+                        ),
+                    ),
+        ) {
+            Column(modifier = Modifier.padding(24.dp)) {
+                Text(
+                    text = stringResource(R.string.premium_version),
+                    color = PremiumGold,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = (-0.5).sp,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = stringResource(R.string.premium_desc),
+                    color = SlateText,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.5.sp,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+
+                if (plans.isEmpty()) {
+                    // 상품 조회 전/실패 시: 로딩 안내만 노출(셀렉터·결제 버튼 미노출).
+                    Spacer(modifier = Modifier.height(20.dp))
+                    Text(
+                        text = stringResource(R.string.premium_loading),
+                        color = SlateText,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                } else {
+                    Spacer(modifier = Modifier.height(20.dp))
+                    // 뱃지가 카드 상단 경계에 걸치므로 Row 자체에 상단 여유를 두어 클리핑을 막는다.
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        if (yearlyPlan != null) {
+                            PlanSelectorCard(
+                                planName = stringResource(R.string.premium_plan_yearly_name),
+                                price = yearlyPlan.formattedPrice,
+                                periodLabel = stringResource(R.string.premium_period_year),
+                                note = yearlyNoteText,
+                                badge = savingBadgeText,
+                                isSelected = selectedType == SubscriptionPlan.PlanType.YEARLY,
+                                onClick = { selectedType = SubscriptionPlan.PlanType.YEARLY },
+                            )
+                        }
+                        if (monthlyPlan != null) {
+                            PlanSelectorCard(
+                                planName = stringResource(R.string.premium_plan_monthly_name),
+                                price = monthlyPlan.formattedPrice,
+                                periodLabel = stringResource(R.string.premium_period_month),
+                                note = monthlyNoteText,
+                                badge = null,
+                                isSelected = selectedType == SubscriptionPlan.PlanType.MONTHLY,
+                                onClick = { selectedType = SubscriptionPlan.PlanType.MONTHLY },
+                            )
                         }
                     }
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    Button(
+                        // 현재 선택된 플랜으로 실제 결제(launchBillingFlow) 경로를 호출한다.
+                        onClick = { selectedPlan?.let(onPurchasePlan) },
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .height(52.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors =
+                            ButtonDefaults.buttonColors(
+                                containerColor = PremiumGold,
+                                contentColor = Color.Black,
+                            ),
+                        contentPadding = PaddingValues(0.dp),
+                    ) {
+                        Text(
+                            text = stringResource(R.string.premium_cta),
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = (-0.3).sp,
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    val trialNotice =
+                        selectedPlan?.let { plan ->
+                            when (plan.type) {
+                                SubscriptionPlan.PlanType.YEARLY ->
+                                    stringResource(R.string.premium_trial_notice_yearly, plan.formattedPrice)
+                                SubscriptionPlan.PlanType.MONTHLY ->
+                                    stringResource(R.string.premium_trial_notice_monthly, plan.formattedPrice)
+                            }
+                        } ?: ""
+                    Text(
+                        text = trialNotice,
+                        color = SlateText,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        lineHeight = 17.sp,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Text(
+                        text = stringResource(R.string.premium_have_coupon),
+                        color = SlateText,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center,
+                        textDecoration = TextDecoration.Underline,
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .clickable { showCouponDialog = true }
+                                .padding(vertical = 4.dp),
+                    )
                 }
             }
         }
     }
 }
 
+/**
+ * 구독 플랜 선택 카드(연간/월간). 탭 시 선택 상태를 상위로 올린다.
+ * 연간 카드는 [badge](절약 뱃지)를 상단 경계에 살짝 걸치게 표시한다.
+ */
 @Composable
-private fun SubscriptionPlanButton(
-    plan: SubscriptionPlan,
+private fun RowScope.PlanSelectorCard(
+    planName: String,
+    price: String,
+    periodLabel: String,
+    note: String?,
+    badge: String?,
+    isSelected: Boolean,
     onClick: () -> Unit,
 ) {
-    val periodLabel =
-        when (plan.type) {
-            SubscriptionPlan.PlanType.MONTHLY -> stringResource(R.string.premium_plan_monthly)
-            SubscriptionPlan.PlanType.YEARLY -> stringResource(R.string.premium_plan_yearly)
-        }
+    val borderColor = if (isSelected) PremiumGold else Color(0xFF3A3A3A)
+    val nameColor = if (isSelected) PremiumGold else SlateText
     Box(
+        // 뱃지가 상단 경계에 걸치므로(offset y -9dp) 그만큼 상단 여유를 확보해 클리핑을 막는다.
         modifier =
             Modifier
-                .fillMaxWidth()
-                .height(60.dp)
-                .background(Color(0xFFFFB900), RoundedCornerShape(16.dp))
-                .clickable { onClick() }
-                .padding(horizontal = 20.dp),
-        contentAlignment = Alignment.CenterStart,
+                .weight(1f)
+                .padding(top = 10.dp),
     ) {
-        Column {
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .background(
+                        if (isSelected) PremiumGold.copy(alpha = 0.08f) else Color.Transparent,
+                        RoundedCornerShape(16.dp),
+                    )
+                    .border(
+                        BorderStroke(if (isSelected) 1.5.dp else 1.dp, borderColor),
+                        RoundedCornerShape(16.dp),
+                    )
+                    .clickable(onClick = onClick)
+                    .padding(horizontal = 14.dp, vertical = 16.dp),
+        ) {
             Text(
-                text = stringResource(R.string.premium_plan_format, periodLabel, plan.formattedPrice),
-                color = Color.Black,
-                fontWeight = FontWeight.Black,
-                fontSize = 14.sp,
-                letterSpacing = 0.5.sp,
+                text = planName,
+                color = nameColor,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = (-0.2).sp,
             )
-            if (plan.hasFreeTrial) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(verticalAlignment = Alignment.Bottom) {
                 Text(
-                    text = stringResource(R.string.premium_free_trial),
-                    color = Color.Black.copy(alpha = 0.7f),
+                    text = price,
+                    color = Color.White,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = (-0.5).sp,
+                )
+                Text(
+                    text = " /$periodLabel",
+                    color = SlateText,
+                    fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 2.dp),
+                )
+            }
+            if (note != null) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = note,
+                    color = SlateSubText,
                     fontSize = 10.sp,
+                    fontWeight = FontWeight.Medium,
+                )
+            }
+        }
+        if (badge != null) {
+            Box(
+                modifier =
+                    Modifier
+                        .align(Alignment.TopStart)
+                        .offset(x = 12.dp, y = (-9).dp)
+                        .background(PremiumGold, RoundedCornerShape(50))
+                        .padding(horizontal = 8.dp, vertical = 3.dp),
+            ) {
+                Text(
+                    text = badge,
+                    color = Color.Black,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = (-0.1).sp,
                 )
             }
         }
     }
 }
+
+/**
+ * 프로모션 쿠폰 등록 다이얼로그(F-27). 입력값을 정규화(trim + uppercase)한 뒤
+ * Google Play 프로모션 코드 리딤 화면으로 이동한다. 코드 유효성 검증은 Google Play가 처리한다.
+ */
+@Composable
+private fun CouponDialog(onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    var code by remember { mutableStateOf("") }
+    // 콜백(비 Composable 람다)에서 사용할 수 있도록 접근성 문구를 미리 읽어 둔다.
+    val couponIconDesc = stringResource(R.string.cd_coupon_icon)
+    val closeDesc = stringResource(R.string.cd_close)
+
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(24.dp),
+            color = Color(0xFF14110A),
+            border = BorderStroke(0.8.dp, PremiumGold.copy(alpha = 0.25f)),
+        ) {
+            Column(modifier = Modifier.padding(24.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier =
+                            Modifier
+                                .size(44.dp)
+                                .background(PremiumGold, RoundedCornerShape(12.dp)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.ConfirmationNumber,
+                            contentDescription = couponIconDesc,
+                            tint = Color(0xFF14110A),
+                            modifier = Modifier.size(24.dp),
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(R.string.coupon_dialog_title),
+                            color = Color.White,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = (-0.5).sp,
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = stringResource(R.string.coupon_dialog_subtitle),
+                            color = SlateText,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium,
+                        )
+                    }
+                    IconButton(onClick = onDismiss) {
+                        Icon(
+                            imageVector = Icons.Filled.Close,
+                            contentDescription = closeDesc,
+                            tint = SlateText,
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                OutlinedTextField(
+                    value = code,
+                    onValueChange = { code = it },
+                    singleLine = true,
+                    placeholder = {
+                        Text(
+                            text = stringResource(R.string.coupon_input_hint),
+                            color = SlateSubText,
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp),
+                    colors =
+                        OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = PremiumGold,
+                            unfocusedBorderColor = Color(0xFF3A3A3A),
+                            cursorColor = PremiumGold,
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                        ),
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    text = stringResource(R.string.coupon_input_helper),
+                    color = SlateText,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                )
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                Button(
+                    onClick = {
+                        // 대소문자 미구분·공백 트리밍 가드 적용 후 Play 리딤 실행.
+                        val normalized = code.trim().uppercase()
+                        if (normalized.isNotEmpty()) {
+                            redeemPromoCode(context, normalized)
+                            onDismiss()
+                        }
+                    },
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .height(52.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors =
+                        ButtonDefaults.buttonColors(
+                            containerColor = PremiumGold,
+                            contentColor = Color.Black,
+                        ),
+                    contentPadding = PaddingValues(0.dp),
+                ) {
+                    Text(
+                        text = stringResource(R.string.coupon_submit),
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = (-0.3).sp,
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Google Play 프로모션 코드 리딤 화면을 연다. Play 스토어 앱을 우선 시도하고,
+ * 없으면 브라우저로 폴백하며, 처리 가능한 앱이 없으면 조용히 무시한다.
+ */
+private fun redeemPromoCode(
+    context: Context,
+    code: String,
+) {
+    val redeemUri = Uri.parse("https://play.google.com/redeem?code=$code")
+    val playIntent = Intent(Intent.ACTION_VIEW, redeemUri).apply { setPackage("com.android.vending") }
+    try {
+        context.startActivity(playIntent)
+        return
+    } catch (_: ActivityNotFoundException) {
+        // Play 스토어 앱이 없으면 브라우저 폴백을 시도한다.
+    }
+    try {
+        context.startActivity(Intent(Intent.ACTION_VIEW, redeemUri))
+    } catch (_: ActivityNotFoundException) {
+        // 리딤 URL을 처리할 수 있는 앱이 없으면 조용히 무시한다.
+    }
+}
+
+/**
+ * 마이크로 단위 금액을 통화 기호 포함 문자열로 포맷한다.
+ * KRW처럼 소수점이 없는 통화도 자연스럽게 표기하도록 소수점 자리수를 0으로 고정한다.
+ * 통화 코드가 유효하지 않으면 null을 반환해 호출부에서 폴백하도록 한다.
+ */
+private fun formatCurrency(
+    amountMicros: Long,
+    currencyCode: String,
+): String? =
+    runCatching {
+        java.text.NumberFormat.getCurrencyInstance().apply {
+            currency = java.util.Currency.getInstance(currencyCode)
+            maximumFractionDigits = 0
+        }.format(amountMicros / 1_000_000.0)
+    }.getOrNull()
 
 @Composable
 fun DisplayCard(

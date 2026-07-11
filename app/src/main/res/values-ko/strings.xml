@@ -80,15 +80,31 @@
     <string name="speed_unit_label">속도 단위</string>
     <string name="lean_calibration_label">기울기 센서 영점 조절</string>
     <string name="lean_calibration_desc">센서의 수평 영점을 초기화합니다.</string>
-    <string name="premium_version">프리미엄 버전</string>
-    <string name="premium_desc">구독으로 모든 광고를 제거합니다</string>
-    <string name="premium_plan_monthly">월간</string>
-    <string name="premium_plan_yearly">연간</string>
-    <string name="premium_plan_format">%1$s · %2$s</string>
-    <string name="premium_free_trial">14일 무료체험 제공</string>
+    <string name="premium_version">PREMIUM VERSION</string>
+    <string name="premium_desc">REMOVE ALL ADS PERMANENTLY</string>
     <string name="premium_loading">구독 상품을 불러오는 중…</string>
     <string name="premium_active_title">프리미엄 사용 중</string>
     <string name="premium_active_desc">광고 없는 경험이 활성화되었습니다</string>
+    <!-- 구독 카드: 골드 2플랜 셀렉터 (F-27 리디자인) -->
+    <string name="premium_plan_yearly_name">연간 구독</string>
+    <string name="premium_plan_monthly_name">월간 구독</string>
+    <string name="premium_yearly_saving">연간 %1$d%% 절약</string>
+    <string name="premium_yearly_note">월 %1$s 환산</string>
+    <string name="premium_monthly_note">언제든 해지 가능</string>
+    <string name="premium_period_year">년</string>
+    <string name="premium_period_month">월</string>
+    <string name="premium_cta">14일 무료 체험 후 구독하기</string>
+    <string name="premium_trial_notice_yearly">14일 동안 무료로 사용해 보세요. 이후 연 %1$s 자동 결제됩니다.</string>
+    <string name="premium_trial_notice_monthly">14일 동안 무료로 사용해 보세요. 이후 월 %1$s 자동 결제됩니다.</string>
+    <string name="premium_have_coupon">쿠폰 코드가 있으신가요?</string>
+    <!-- 쿠폰 등록 다이얼로그 (F-27) -->
+    <string name="coupon_dialog_title">쿠폰 코드 입력</string>
+    <string name="coupon_dialog_subtitle">광고 제거 무료 이용권</string>
+    <string name="coupon_input_hint">쿠폰 코드를 입력하세요</string>
+    <string name="coupon_input_helper">대소문자 구분 없이 입력하세요 (예: EVERYBARI3)</string>
+    <string name="coupon_submit">쿠폰 등록하기</string>
+    <string name="cd_coupon_icon">쿠폰</string>
+    <string name="cd_close">닫기</string>
     <!-- 플로팅 오버레이 위젯 (F-19) -->
     <string name="overlay_title">플로팅 오버레이</string>
     <string name="overlay_desc">주행 중 다른 앱 위에 속도·기울기·제동 정보를 표시합니다</string>

@@ -81,15 +81,31 @@
     <string name="speed_unit_label">Speed Unit</string>
     <string name="lean_calibration_label">Lean Angle Calibration</string>
     <string name="lean_calibration_desc">Reset sensor zero point</string>
-    <string name="premium_version">Premium Version</string>
-    <string name="premium_desc">Remove all ads with a subscription</string>
-    <string name="premium_plan_monthly">Monthly</string>
-    <string name="premium_plan_yearly">Yearly</string>
-    <string name="premium_plan_format">%1$s · %2$s</string>
-    <string name="premium_free_trial">14-day free trial</string>
+    <string name="premium_version">PREMIUM VERSION</string>
+    <string name="premium_desc">REMOVE ALL ADS PERMANENTLY</string>
     <string name="premium_loading">Loading subscription plans…</string>
     <string name="premium_active_title">PREMIUM ACTIVE</string>
     <string name="premium_active_desc">AD-FREE EXPERIENCE UNLOCKED</string>
+    <!-- Subscription card: gold two-plan selector (F-27 redesign) -->
+    <string name="premium_plan_yearly_name">Yearly</string>
+    <string name="premium_plan_monthly_name">Monthly</string>
+    <string name="premium_yearly_saving">Save %1$d%%</string>
+    <string name="premium_yearly_note">≈ %1$s/mo</string>
+    <string name="premium_monthly_note">Cancel anytime</string>
+    <string name="premium_period_year">yr</string>
+    <string name="premium_period_month">mo</string>
+    <string name="premium_cta">Start 14-day free trial</string>
+    <string name="premium_trial_notice_yearly">Free for 14 days, then %1$s/yr auto-renews.</string>
+    <string name="premium_trial_notice_monthly">Free for 14 days, then %1$s/mo auto-renews.</string>
+    <string name="premium_have_coupon">Have a coupon code?</string>
+    <!-- Coupon redeem dialog (F-27) -->
+    <string name="coupon_dialog_title">Enter Coupon Code</string>
+    <string name="coupon_dialog_subtitle">Free ad-removal pass</string>
+    <string name="coupon_input_hint">Enter coupon code</string>
+    <string name="coupon_input_helper">Case-insensitive (e.g. EVERYBARI3)</string>
+    <string name="coupon_submit">Redeem coupon</string>
+    <string name="cd_coupon_icon">Coupon</string>
+    <string name="cd_close">Close</string>
     <!-- Floating overlay widget (F-19) -->
     <string name="overlay_title">Floating Overlay</string>
     <string name="overlay_desc">Show speed, lean and braking on top of other apps while riding</string>

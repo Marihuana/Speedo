@@ -13,6 +13,10 @@ data class SubscriptionPlan(
     val offerToken: String,
     /** 정기 결제 가격(통화 기호 포함, Play 제공 포맷). */
     val formattedPrice: String,
+    /** 정기 결제 금액(마이크로 단위, 1_000_000 = 1통화단위). 월환산·할인율 계산에 사용. */
+    val priceAmountMicros: Long,
+    /** ISO 4217 통화 코드(예: KRW, USD). 통화 포맷팅에 사용. */
+    val priceCurrencyCode: String,
     /** 무료체험 제공 여부. */
     val hasFreeTrial: Boolean,
     /** 무료체험 기간(ISO 8601 duration, 예: P7D). 미제공 시 null. */

@@ -212,6 +212,8 @@ class BillingRepositoryImpl
                         productId = details.productId,
                         offerToken = offer.offerToken,
                         formattedPrice = recurring.formattedPrice,
+                        priceAmountMicros = recurring.priceAmountMicros,
+                        priceCurrencyCode = recurring.priceCurrencyCode,
                         hasFreeTrial = trial != null,
                         freeTrialPeriod = trial?.billingPeriod,
                     )
