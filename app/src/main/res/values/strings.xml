@@ -199,7 +199,10 @@
     <string name="press_back_again_to_exit">Press back again to exit.</string>
 
     <!-- Safety Guide -->
-    <string name="guide_safety_title">Safety Information</string>
-    <string name="guide_safety_message">This app provides riding telemetry data for convenience. Operating your smartphone while riding is extremely dangerous. Please operate the app only when safely parked. Always wear protective gear and comply with traffic laws for a safe ride.</string>
-    <string name="guide_safety_confirm">Agree &amp; Confirm</string>
+    <string name="guide_safety_mount_title">Mount phone in the center as much as possible</string>
+    <string name="guide_safety_mount_message">Securing your smartphone in the exact center of the handlebar with a stem mount provides the most accurate lean angle measurement. Off-center mounting increases errors.</string>
+    <string name="guide_safety_next">Next</string>
+    <string name="guide_safety_title">Measurements for Reference Only</string>
+    <string name="guide_safety_message">Lean angle is calculated by combining the accelerometer and gyro sensors. Errors may occur depending on road conditions, vibrations, and mounting position, so do not blindly trust it as an absolute value.</string>
+    <string name="guide_safety_confirm">Get Started</string>
 </resources>
