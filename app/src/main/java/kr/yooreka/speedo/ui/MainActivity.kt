@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -380,6 +381,8 @@ fun SafetyGuideScreen(
 ) {
     BackHandler {}
 
+    val isLandscape = LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+
     // 하단 고정 카드 방식. ModalBottomSheet 는 콘텐츠(이미지+텍스트+버튼)를 다 펼치지 못해
     // 하단 '다음/시작하기' 버튼이 잘리는 문제가 있어, 콘텐츠 높이에 맞는 카드를 하단에 고정한다.
     Box(
@@ -392,6 +395,9 @@ fun SafetyGuideScreen(
         Column(
             modifier =
                 Modifier
+                    // 가로모드에서는 카드가 화면 전체 폭을 채워 답답하므로 폭을 제한해 중앙 정렬한다.
+                    // (widthIn 을 fillMaxWidth 앞에 두어야 최대 폭 제한이 적용된다.)
+                    .then(if (isLandscape) Modifier.widthIn(max = 560.dp) else Modifier)
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
                     .background(Color(0xFF1E2530)),
@@ -407,6 +413,7 @@ fun SafetyGuideScreen(
             )
             SafetyGuideSheetContent(
                 onConfirm = { viewModel.confirmSafetyGuide(onConfirm) },
+                isLandscape = isLandscape,
             )
         }
     }
@@ -417,6 +424,7 @@ fun SafetyGuideScreen(
 fun SafetyGuideSheetContent(
     onConfirm: () -> Unit,
     modifier: Modifier = Modifier,
+    isLandscape: Boolean = false,
 ) {
     val pagerState = rememberPagerState(pageCount = { 2 })
     val coroutineScope = rememberCoroutineScope()
@@ -458,51 +466,91 @@ fun SafetyGuideSheetContent(
                     .fillMaxWidth()
                     .wrapContentHeight(),
         ) { page ->
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Image(
-                    painter =
-                        painterResource(
-                            id = if (page == 0) R.drawable.img_info_mount else R.drawable.img_info_lean,
-                        ),
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
+            val imageRes = if (page == 0) R.drawable.img_info_mount else R.drawable.img_info_lean
+            val titleRes = if (page == 0) R.string.guide_safety_mount_title else R.string.guide_safety_title
+            val messageRes = if (page == 0) R.string.guide_safety_mount_message else R.string.guide_safety_message
+
+            if (isLandscape) {
+                // 가로모드: 세로 공간이 좁고 세로형 일러스트가 잘리므로 이미지(좌) + 텍스트(우)를 나란히 배치한다.
+                Row(
                     modifier =
                         Modifier
                             .fillMaxWidth()
-                            .height(180.dp)
-                            .clip(RoundedCornerShape(12.dp)),
-                )
-
-                Spacer(modifier = Modifier.height(20.dp))
-
-                Text(
-                    text =
-                        stringResource(
-                            id = if (page == 0) R.string.guide_safety_mount_title else R.string.guide_safety_title,
-                        ),
-                    color = Color.White,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Black,
-                    textAlign = TextAlign.Center,
+                            .height(184.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Image(
+                        painter = painterResource(id = imageRes),
+                        contentDescription = null,
+                        contentScale = ContentScale.Fit,
+                        modifier =
+                            Modifier
+                                .weight(0.44f)
+                                .fillMaxHeight()
+                                .clip(RoundedCornerShape(12.dp)),
+                    )
+                    Spacer(modifier = Modifier.width(20.dp))
+                    Column(
+                        modifier = Modifier.weight(0.56f),
+                        verticalArrangement = Arrangement.Center,
+                    ) {
+                        Text(
+                            text = stringResource(id = titleRes),
+                            color = Color.White,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Black,
+                            textAlign = TextAlign.Start,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Text(
+                            text = stringResource(id = messageRes),
+                            color = Color.LightGray,
+                            fontSize = 14.sp,
+                            lineHeight = 20.sp,
+                            textAlign = TextAlign.Start,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                }
+            } else {
+                Column(
                     modifier = Modifier.fillMaxWidth(),
-                )
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Image(
+                        painter = painterResource(id = imageRes),
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .height(180.dp)
+                                .clip(RoundedCornerShape(12.dp)),
+                    )
 
-                Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(20.dp))
 
-                Text(
-                    text =
-                        stringResource(
-                            id = if (page == 0) R.string.guide_safety_mount_message else R.string.guide_safety_message,
-                        ),
-                    color = Color.LightGray,
-                    fontSize = 14.sp,
-                    lineHeight = 20.sp,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth(),
-                )
+                    Text(
+                        text = stringResource(id = titleRes),
+                        color = Color.White,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Black,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Text(
+                        text = stringResource(id = messageRes),
+                        color = Color.LightGray,
+                        fontSize = 14.sp,
+                        lineHeight = 20.sp,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
             }
         }
 
