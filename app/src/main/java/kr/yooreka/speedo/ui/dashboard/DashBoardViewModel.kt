@@ -187,7 +187,7 @@ class DashBoardViewModel
                 rideDurationFlow,
                 rideDistanceFlow,
             ) { array ->
-                val data = array[0] as kr.yooreka.speedo.domain.model.RideTelemetry
+                val data = array[0] as kr.yooreka.speedo.domain.model.TelemetryData
                 val recording = array[1] as Boolean
                 val prefs = array[2] as kr.yooreka.speedo.data.local.preferences.UserPreferences
                 val autoStop = array[3] as Boolean
