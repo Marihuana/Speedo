@@ -85,7 +85,7 @@
     <string name="premium_plan_monthly">월간</string>
     <string name="premium_plan_yearly">연간</string>
     <string name="premium_plan_format">%1$s · %2$s</string>
-    <string name="premium_free_trial">무료체험 제공</string>
+    <string name="premium_free_trial">14일 무료체험 제공</string>
     <string name="premium_loading">구독 상품을 불러오는 중…</string>
     <string name="premium_active_title">프리미엄 사용 중</string>
     <string name="premium_active_desc">광고 없는 경험이 활성화되었습니다</string>
