@@ -16,6 +16,7 @@ import kr.yooreka.speedo.domain.model.LeanMode
 import kr.yooreka.speedo.domain.model.OverlayMode
 import kr.yooreka.speedo.domain.model.OverlaySettings
 import kr.yooreka.speedo.domain.model.OverlaySize
+import kr.yooreka.speedo.domain.repository.CrashReporter
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -38,6 +39,7 @@ class UserPreferencesRepository
     @Inject
     constructor(
         @ApplicationContext private val context: Context,
+        private val crashReporter: CrashReporter,
     ) {
         private var fallbackIsFirstLaunch: Boolean = true
 
@@ -84,6 +86,8 @@ class UserPreferencesRepository
                     )
                 }
                 .catch { e ->
+                    // 디스크 Full 등 DataStore IO 에러(PRD §4.6). 메모리 캐시 폴백으로 세션을 유지하되 원인을 리포트한다.
+                    crashReporter.recordNonFatal(e, "UserPreferences read failed; falling back to defaults/memory cache")
                     emit(
                         UserPreferences(
                             showTpmsData = false,
@@ -128,7 +132,9 @@ class UserPreferencesRepository
                 }
                 fallbackIsFirstLaunch = isFirstLaunch
             } catch (e: Exception) {
+                // 최초 실행 플래그 영속화 실패(PRD §4.6). 메모리 캐시로 당해 세션 동작을 보장하고 원인을 리포트한다.
                 fallbackIsFirstLaunch = isFirstLaunch
+                crashReporter.recordNonFatal(e, "updateFirstLaunch persistence failed; using in-memory fallback")
             }
         }
 
