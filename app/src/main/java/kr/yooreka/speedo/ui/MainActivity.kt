@@ -8,15 +8,24 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -38,11 +47,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
@@ -58,7 +70,11 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kr.yooreka.speedo.R
 import kr.yooreka.speedo.data.local.preferences.UserPreferencesRepository
@@ -207,79 +223,131 @@ fun MainPagerScreen(
             Screen.Settings,
         )
 
+    val isLandscape = LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         containerColor = BackgroundBlack,
         bottomBar = {
-            NavigationBar(
-                containerColor = Color(0xFF1E2530),
-                contentColor = Color.White,
-            ) {
-                items.forEachIndexed { index, screen ->
-                    NavigationBarItem(
-                        selected = pagerState.currentPage == index,
-                        onClick = {
-                            coroutineScope.launch {
-                                pagerState.animateScrollToPage(index)
-                            }
-                        },
-                        icon = { Icon(painterResource(id = screen.icon), contentDescription = stringResource(id = screen.labelResId)) },
-                        label = { Text(stringResource(id = screen.labelResId)) },
-                        colors =
-                            NavigationBarItemDefaults.colors(
-                                selectedIconColor = NeonGreen,
-                                selectedTextColor = NeonGreen,
-                                unselectedIconColor = Color.Gray,
-                                unselectedTextColor = Color.Gray,
-                                indicatorColor = Color.Transparent,
-                            ),
-                    )
+            if (!isLandscape) {
+                NavigationBar(
+                    containerColor = Color(0xFF1E2530),
+                    contentColor = Color.White,
+                ) {
+                    items.forEachIndexed { index, screen ->
+                        NavigationBarItem(
+                            selected = pagerState.currentPage == index,
+                            onClick = {
+                                coroutineScope.launch {
+                                    pagerState.animateScrollToPage(index)
+                                }
+                            },
+                            icon = { Icon(painterResource(id = screen.icon), contentDescription = stringResource(id = screen.labelResId)) },
+                            label = { Text(stringResource(id = screen.labelResId)) },
+                            colors =
+                                NavigationBarItemDefaults.colors(
+                                    selectedIconColor = NeonGreen,
+                                    selectedTextColor = NeonGreen,
+                                    unselectedIconColor = Color.Gray,
+                                    unselectedTextColor = Color.Gray,
+                                    indicatorColor = Color.Transparent,
+                                ),
+                        )
+                    }
                 }
             }
         },
     ) { innerPadding ->
-        HorizontalPager(
-            state = pagerState,
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
-        ) { page ->
-            when (page) {
-                0 -> {
-                    val viewModel: DashBoardViewModel = hiltViewModel()
-                    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-                    DashBoardScreen(
-                        state = uiState,
-                        uiEvent = viewModel.uiEvent,
-                        onRecordToggle = { viewModel.toggleRecording() },
-                        onConfirmRecording = { viewModel.onConfirmRecording() },
-                        onShowInterstitial = {
-                            (context as? Activity)?.let { activity ->
-                                adManager.showInterstitial(activity) {}
-                            }
-                        },
-                        onAutoStopContinue = { viewModel.onAutoStopContinue() },
-                        onAutoStopConfirm = { viewModel.onAutoStopConfirm() },
-                        onMarkIssue = { viewModel.markDiagnosticIssue() },
-                    )
+        Row(modifier = Modifier.fillMaxSize()) {
+            if (isLandscape) {
+                // 가로모드용 좌측 세로 내비게이션 바 (Figma 80:333 스펙 반영)
+                Column(
+                    modifier =
+                        Modifier
+                            .width(68.dp)
+                            .fillMaxHeight()
+                            .background(Color(0xFF1E2530))
+                            .padding(vertical = 16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(24.dp),
+                ) {
+                    items.forEachIndexed { index, screen ->
+                        val isSelected = pagerState.currentPage == index
+                        val activeColor = NeonGreen
+                        val inactiveColor = Color.Gray
+
+                        Column(
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        coroutineScope.launch {
+                                            pagerState.animateScrollToPage(index)
+                                        }
+                                    },
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            Icon(
+                                painter = painterResource(id = screen.icon),
+                                contentDescription = stringResource(id = screen.labelResId),
+                                tint = if (isSelected) activeColor else inactiveColor,
+                                modifier = Modifier.size(20.dp),
+                            )
+                            Text(
+                                text = stringResource(id = screen.labelResId),
+                                color = if (isSelected) activeColor else inactiveColor,
+                                fontSize = 8.sp,
+                                fontWeight = FontWeight.Bold,
+                            )
+                        }
+                    }
                 }
-                1 -> {
-                    RecordsScreen(
-                        onRecordClick = { rideId ->
-                            navController.navigate(Screen.Log.createRoute(rideId))
-                        },
-                    )
-                }
-                2 -> {
-                    SettingsScreen()
+            }
+
+            HorizontalPager(
+                state = pagerState,
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .padding(if (isLandscape) PaddingValues(0.dp) else innerPadding),
+            ) { page ->
+                when (page) {
+                    0 -> {
+                        val viewModel: DashBoardViewModel = hiltViewModel()
+                        val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+                        DashBoardScreen(
+                            state = uiState,
+                            uiEvent = viewModel.uiEvent,
+                            onRecordToggle = { viewModel.toggleRecording() },
+                            onConfirmRecording = { viewModel.onConfirmRecording() },
+                            onShowInterstitial = {
+                                (context as? Activity)?.let { activity ->
+                                    adManager.showInterstitial(activity) {}
+                                }
+                            },
+                            onAutoStopContinue = { viewModel.onAutoStopContinue() },
+                            onAutoStopConfirm = { viewModel.onAutoStopConfirm() },
+                            onMarkIssue = { viewModel.markDiagnosticIssue() },
+                        )
+                    }
+                    1 -> {
+                        RecordsScreen(
+                            onRecordClick = { rideId ->
+                                navController.navigate(Screen.Log.createRoute(rideId))
+                            },
+                        )
+                    }
+                    2 -> {
+                        SettingsScreen()
+                    }
                 }
             }
         }
     }
 }
 
-// ── SafetyGuideScreen 및 SafetyGuideViewModel ──────────────────────────────────
+// ── SafetyGuideScreen 및 SafetyGuideViewModel (Figma 80-192 / 80-140 싱크) ──────────────────
 
 @dagger.hilt.android.lifecycle.HiltViewModel
 class SafetyGuideViewModel
@@ -287,6 +355,15 @@ class SafetyGuideViewModel
     constructor(
         private val userPreferencesRepository: UserPreferencesRepository,
     ) : ViewModel() {
+        val isFirstLaunch: StateFlow<Boolean> =
+            userPreferencesRepository.userPreferencesFlow
+                .map { it.isFirstLaunch }
+                .stateIn(
+                    scope = viewModelScope,
+                    started = SharingStarted.WhileSubscribed(5000),
+                    initialValue = false,
+                )
+
         fun confirmSafetyGuide(onComplete: () -> Unit) {
             viewModelScope.launch {
                 userPreferencesRepository.updateFirstLaunch(false)
@@ -301,72 +378,172 @@ fun SafetyGuideScreen(
     modifier: Modifier = Modifier,
     viewModel: SafetyGuideViewModel = hiltViewModel(),
 ) {
-    // 안전 안내는 '동의 및 확인'으로만 닫히도록 뒤로가기를 소비한다(사고성 종료·우회 방지, PRD §4.6).
     BackHandler {}
 
+    // 하단 고정 카드 방식. ModalBottomSheet 는 콘텐츠(이미지+텍스트+버튼)를 다 펼치지 못해
+    // 하단 '다음/시작하기' 버튼이 잘리는 문제가 있어, 콘텐츠 높이에 맞는 카드를 하단에 고정한다.
     Box(
         modifier =
             modifier
                 .fillMaxSize()
                 .background(BackgroundBlack),
-        contentAlignment = Alignment.Center,
+        contentAlignment = Alignment.BottomCenter,
     ) {
         Column(
             modifier =
                 Modifier
-                    .fillMaxWidth(0.9f)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(Color(0xFF1E2530))
-                    .padding(24.dp),
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
+                    .background(Color(0xFF1E2530)),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Icon(
-                painter = painterResource(id = R.drawable.ic_warning),
-                contentDescription = null,
-                tint = NeonGreen,
-                modifier = Modifier.size(64.dp),
+            // 드래그 핸들 캡슐 인디케이터(장식, Figma 스펙 32x4)
+            Box(
+                modifier =
+                    Modifier
+                        .padding(top = 12.dp)
+                        .size(width = 32.dp, height = 4.dp)
+                        .background(color = Color(0xFF4A5568), shape = RoundedCornerShape(2.dp)),
             )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Text(
-                text = stringResource(id = R.string.guide_safety_title),
-                color = Color.White,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center,
+            SafetyGuideSheetContent(
+                onConfirm = { viewModel.confirmSafetyGuide(onConfirm) },
             )
+        }
+    }
+}
 
-            Spacer(modifier = Modifier.height(16.dp))
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun SafetyGuideSheetContent(
+    onConfirm: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val pagerState = rememberPagerState(pageCount = { 2 })
+    val coroutineScope = rememberCoroutineScope()
+    val isLastPage = pagerState.currentPage == 1
 
-            Text(
-                text = stringResource(id = R.string.guide_safety_message),
-                color = Color.LightGray,
-                fontSize = 14.sp,
-                lineHeight = 20.sp,
-                textAlign = TextAlign.Center,
-            )
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Button(
-                onClick = {
-                    viewModel.confirmSafetyGuide(onConfirm)
-                },
-                colors =
-                    ButtonDefaults.buttonColors(
-                        containerColor = NeonGreen,
-                        contentColor = BackgroundBlack,
-                    ),
-                shape = RoundedCornerShape(8.dp),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(
-                    text = stringResource(id = R.string.guide_safety_confirm),
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
+    Column(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(horizontal = 24.dp, vertical = 16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        // 페이지 인디케이터 — pager 밖에 고정해 항상 노출.
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(bottom = 20.dp),
+        ) {
+            repeat(2) { index ->
+                val isActive = pagerState.currentPage == index
+                val widthSize = if (isActive) 32.dp else 12.dp
+                val color = if (isActive) NeonGreen else Color(0xFF4A5568)
+                Box(
+                    modifier =
+                        Modifier
+                            .size(width = widthSize, height = 4.dp)
+                            .background(color = color, shape = RoundedCornerShape(2.dp)),
                 )
             }
         }
+
+        // 스와이프 콘텐츠(이미지+타이틀+설명)만 pager 에 둔다. 버튼은 아래에 고정.
+        HorizontalPager(
+            state = pagerState,
+            verticalAlignment = Alignment.Top,
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .wrapContentHeight(),
+        ) { page ->
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Image(
+                    painter =
+                        painterResource(
+                            id = if (page == 0) R.drawable.img_info_mount else R.drawable.img_info_lean,
+                        ),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .height(180.dp)
+                            .clip(RoundedCornerShape(12.dp)),
+                )
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                Text(
+                    text =
+                        stringResource(
+                            id = if (page == 0) R.string.guide_safety_mount_title else R.string.guide_safety_title,
+                        ),
+                    color = Color.White,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Black,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Text(
+                    text =
+                        stringResource(
+                            id = if (page == 0) R.string.guide_safety_mount_message else R.string.guide_safety_message,
+                        ),
+                    color = Color.LightGray,
+                    fontSize = 14.sp,
+                    lineHeight = 20.sp,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // 동작 버튼 — pager 밖에 고정해 항상 노출. 현재 페이지에 따라 라벨/동작 분기.
+        Button(
+            onClick = {
+                if (isLastPage) {
+                    onConfirm()
+                } else {
+                    coroutineScope.launch { pagerState.animateScrollToPage(1) }
+                }
+            },
+            colors =
+                ButtonDefaults.buttonColors(
+                    containerColor = NeonGreen,
+                    contentColor = BackgroundBlack,
+                ),
+            shape = RoundedCornerShape(16.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+        ) {
+            Text(
+                text =
+                    stringResource(
+                        id = if (isLastPage) R.string.guide_safety_confirm else R.string.guide_safety_next,
+                    ),
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFF000000)
+@Composable
+fun SafetyGuideSheetContentPreview() {
+    SpeedoTheme {
+        SafetyGuideSheetContent(onConfirm = {})
     }
 }
