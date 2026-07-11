@@ -27,3 +27,6 @@ keystore.properties
 # AI 에이전트 설정 / 임시 문서 (로컬 전용)
 .agents/
 docs/temp/
+
+# Figma agent cache (local only)
+figma_nodes_cache*.json
