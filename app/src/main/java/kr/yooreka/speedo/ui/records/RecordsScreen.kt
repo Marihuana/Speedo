@@ -132,12 +132,16 @@ fun RecordsScreen(
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
 
-    // 가로 마스터-디테일 선택 상태. 최신(첫) 주행을 기본 선택하고, 선택 주행이 목록에서 사라지면 재선정한다.
+    // 가로 마스터-디테일 선택 상태. 최신(첫) 주행을 기본 선택하고, 선택 주행이 목록에서 사라지면
+    // 재선정하되, 목록이 비면 선택을 해제해 우측 패널이 삭제된 주행을 계속 표시하지 않도록 한다.
     var selectedRideId by rememberSaveable { mutableStateOf<Long?>(null) }
     LaunchedEffect(records) {
-        if (records.isNotEmpty() && records.none { it.id == selectedRideId }) {
-            selectedRideId = records.first().id
-        }
+        selectedRideId =
+            when {
+                records.isEmpty() -> null
+                records.none { it.id == selectedRideId } -> records.first().id
+                else -> selectedRideId
+            }
     }
 
     Column(
@@ -157,6 +161,8 @@ fun RecordsScreen(
                         onRecordClick = { id -> selectedRideId = id },
                         onEditRecord = { editingRecordId = it },
                         onDeleteRecord = { deletingRecordId = it },
+                        // 빈 목록 안내는 우측 상세 패널이 담당하므로 좌측에서는 중복 표시하지 않는다.
+                        showEmptyPlaceholder = false,
                         modifier =
                             Modifier
                                 .weight(0.4f)
@@ -169,10 +175,10 @@ fun RecordsScreen(
                                 .weight(0.6f)
                                 .fillMaxHeight(),
                     ) {
-                        val detailRideId = selectedRideId
-                        if (detailRideId != null) {
+                        val detailRecord = selectedRideId?.let { id -> records.find { it.id == id } }
+                        if (detailRecord != null) {
                             RecordsDetailPane(
-                                rideId = detailRideId,
+                                ride = detailRecord,
                                 modifier = Modifier.fillMaxSize(),
                             )
                         } else {
@@ -216,6 +222,7 @@ private fun RecordsListContent(
     onEditRecord: (Long) -> Unit,
     onDeleteRecord: (Long) -> Unit,
     modifier: Modifier = Modifier,
+    showEmptyPlaceholder: Boolean = true,
 ) {
     // 헤더와 총 주행거리 카드까지 목록과 함께 스크롤되도록 LazyColumn 첫 아이템으로 포함한다.
     LazyColumn(
@@ -232,8 +239,10 @@ private fun RecordsListContent(
         }
 
         if (records.isEmpty()) {
-            item(key = "empty") {
-                RecordsEmptyDetail(modifier = Modifier.fillMaxWidth())
+            if (showEmptyPlaceholder) {
+                item(key = "empty") {
+                    RecordsEmptyDetail(modifier = Modifier.fillMaxWidth())
+                }
             }
         } else {
             items(records, key = { it.id }) { record ->
@@ -250,16 +259,17 @@ private fun RecordsListContent(
 }
 
 /**
- * 가로 기록탭 우측 상세 패널. 선택된 [rideId] 의 주행 상세(지도 + 텔레메트리)를 LogScreen 재사용으로 렌더링한다.
+ * 가로 기록탭 우측 상세 패널. 선택된 [ride] 의 주행 상세(지도 + 텔레메트리)를 LogScreen 재사용으로 렌더링한다.
  * nav 백스택 진입이 아니므로 LogViewModel 을 직접 얻어 loadRide 로 선택 주행을 주입하고, 뒤로가기 버튼은 숨긴다.
+ * 선택 주행의 id 뿐 아니라 제목이 바뀌어도(이름 변경) 재로드하도록 두 값을 이펙트 키로 사용한다.
  */
 @Composable
 private fun RecordsDetailPane(
-    rideId: Long,
+    ride: RideRecord,
     modifier: Modifier = Modifier,
 ) {
     val logViewModel: LogViewModel = hiltViewModel()
-    LaunchedEffect(rideId) { logViewModel.loadRide(rideId) }
+    LaunchedEffect(ride.id, ride.title) { logViewModel.loadRide(ride.id) }
     LogScreen(
         viewModel = logViewModel,
         showBackButton = false,

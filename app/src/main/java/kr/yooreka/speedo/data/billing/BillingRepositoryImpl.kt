@@ -42,7 +42,7 @@ class BillingRepositoryImpl
 
             // 광고 제거 구독 상품 ID(Play Console과 일치 필요). 월간/연간은 base plan ID가 아니라
             // 결제 주기(billingPeriod)로 판별해 콘솔 네이밍에 의존하지 않는다.
-            private const val SUBSCRIPTION_PRODUCT_ID = "remove_ads_subscription"
+            private const val SUBSCRIPTION_PRODUCT_ID = "remove_ads_subscript"
 
             // 개발자 후원(일회성 소비성 인앱) 상품 ID(Play Console과 일치 필요).
             private const val DONATION_PRODUCT_ID = "buy_developer_motorcycle"

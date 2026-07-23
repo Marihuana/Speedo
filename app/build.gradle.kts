@@ -43,8 +43,8 @@ android {
     defaultConfig {
         applicationId = "kr.yooreka.speedo"
         minSdk = 27
-        targetSdk = 35
-        versionCode = 8
+        targetSdk = 36
+        versionCode = 10
         versionName = "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
