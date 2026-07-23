@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -54,60 +55,61 @@ class LogViewModel
         private val dateFormatter =
             DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm", Locale.getDefault()).withZone(ZoneId.systemDefault())
 
-        // 현재 로드된 주행 id. 마스터-디테일(가로 기록탭)에서 동일 주행 재선택 시 중복 로드를 막는다.
-        private var loadedRideId: Long? = null
+        // 진행 중인 상세 로드 작업. 주행 전환 시 이전 로드를 취소해 결과 순서 역전을 막는다.
+        private var loadJob: Job? = null
 
         init {
             val rideId = savedStateHandle.get<Long>("rideId") ?: -1L
             if (rideId != -1L) {
                 fetchRideDetails(rideId)
-            } else {
-                _uiState.value = _uiState.value.copy(isLoading = false, isError = true)
             }
+            // rideId 미주입(가로 기록탭 상세 패널 재사용 컨텍스트)은 에러 대신 초기 로딩 상태를 유지하고,
+            // 이후 loadRide()로 대상 주행을 주입한다(진입 시 에러 화면 깜빡임 방지).
         }
 
         /**
          * 지정한 주행 상세를 로드한다(가로 기록탭 마스터-디테일 우측 패널 진입점).
-         * nav 인자로 rideId가 오지 않는 재사용 컨텍스트에서 선택된 주행을 갱신하기 위해 사용한다.
+         * 재로드 여부는 호출부(LaunchedEffect의 id/제목 키)가 제어하므로 여기서는 항상 최신으로 로드한다.
          */
         fun loadRide(rideId: Long) {
-            if (rideId == loadedRideId) return
-            _uiState.value = LogState(isLoading = true)
             fetchRideDetails(rideId)
         }
 
         private fun fetchRideDetails(rideId: Long) {
-            loadedRideId = rideId
-            viewModelScope.launch {
-                val telemetryData = getRideTelemetryUseCase(rideId).getOrDefault(emptyList())
-                // CPU 집약 보간(F-13c/d)은 Default 디스패처로 오프로딩해 UI/지도 렌더와 경합하지 않게 한다.
-                val routePoints =
-                    withContext(defaultDispatcher) {
-                        // 음영(터널) 구간 속도 역산(F-13d) → 좌표 보간(F-13c) 순서.
-                        interpolateRoutePathUseCase(interpolateShadowSpeedUseCase(telemetryData))
-                    }
+            // 이전 로드를 취소해 빠른 주행 전환 시 순서 역전(오래된 결과가 최신 선택을 덮어씀)을 방지한다.
+            loadJob?.cancel()
+            _uiState.value = LogState(isLoading = true)
+            loadJob =
+                viewModelScope.launch {
+                    val telemetryData = getRideTelemetryUseCase(rideId).getOrDefault(emptyList())
+                    // CPU 집약 보간(F-13c/d)은 Default 디스패처로 오프로딩해 UI/지도 렌더와 경합하지 않게 한다.
+                    val routePoints =
+                        withContext(defaultDispatcher) {
+                            // 음영(터널) 구간 속도 역산(F-13d) → 좌표 보간(F-13c) 순서.
+                            interpolateRoutePathUseCase(interpolateShadowSpeedUseCase(telemetryData))
+                        }
 
-                getRideDetailUseCase(rideId).fold(
-                    onSuccess = { ride ->
-                        val maxSpd = telemetryData.maxOfOrNull { it.speed } ?: 0f
-                        _uiState.value =
-                            LogState(
-                                isLoading = false,
-                                title = ride.title,
-                                date = dateFormatter.format(Instant.ofEpochMilli(ride.startTime)),
-                                duration = formatDuration(ride.duration),
-                                distance = String.format("%.1f", ride.totalDistance),
-                                maxLean = String.format("%.0f", ride.maxLean),
-                                maxSpeed = String.format("%.0f", maxSpd),
-                                routePoints = routePoints,
-                                selectedPoint = null,
-                            )
-                    },
-                    onFailure = {
-                        _uiState.value = LogState(isLoading = false, isError = true)
-                    },
-                )
-            }
+                    getRideDetailUseCase(rideId).fold(
+                        onSuccess = { ride ->
+                            val maxSpd = telemetryData.maxOfOrNull { it.speed } ?: 0f
+                            _uiState.value =
+                                LogState(
+                                    isLoading = false,
+                                    title = ride.title,
+                                    date = dateFormatter.format(Instant.ofEpochMilli(ride.startTime)),
+                                    duration = formatDuration(ride.duration),
+                                    distance = String.format("%.1f", ride.totalDistance),
+                                    maxLean = String.format("%.0f", ride.maxLean),
+                                    maxSpeed = String.format("%.0f", maxSpd),
+                                    routePoints = routePoints,
+                                    selectedPoint = null,
+                                )
+                        },
+                        onFailure = {
+                            _uiState.value = LogState(isLoading = false, isError = true)
+                        },
+                    )
+                }
         }
 
         fun selectPoint(point: RideTelemetry?) {
